@@ -1,28 +1,26 @@
-# Arch Linux Guided Installer
+# The Kyber Link v1.0
 
-A modular, beginner-friendly Arch Linux installer with a professional TUI and a Mid-Century Modern aesthetic.
+A modular Arch Linux installation script (Kyber OS) with a Star Wars-themed TUI and a 1970s retro-futurist aesthetic.
 
 ## Features
 
-- **Guided TUI:** Uses `whiptail` for an accessible, menu-driven installation process.
-- **System Pre-flight Check:** Verifies UEFI, Internet connection, and disk space before starting.
-- **Auto-Partitioning:** Sets up a GPT layout with EFI, Swap, and Root partitions.
-- **Desktop & WM Selection:** Choose from KDE Plasma, GNOME, MATE, Hyprland, and i3-gaps.
-- **Mid-Century Modern Themes:** Pre-configured dotfiles for Hyprland and i3-gaps with a vintage color palette.
-- **Custom Kernel Module:** Options for standard, Zen, LTS kernels, or an automated custom compilation flow.
-- **Software Bundles:** One-click installation for Coding, Gaming, and Media suites.
-- **AUR Integration:** Automated setup of `yay` or `paru`.
+- **Droid Initialization Terminal:** A custom `dialog` TUI with Star Wars terminology and a vintage color palette.
+- **Plotting Hyperspace Coordinates:** Automated and manual partitioning modes for beginners and advanced users.
+- **Bleeding the Crystal:** Advanced option to compile a custom kernel from source.
+- **Jedi Sentinel Bundle:** A pre-configured developer suite including Git, CMake, .NET, Docker, and VS Code.
+- **Sector: Shoalhaven Heads:** Local flair for users in the Sydney/South Coast region, including customized MOTD and timezone enforcement.
+- **Teak and Chrome Aesthetic:** Pre-configured dotfiles for Hyprland and i3-wm with warm browns, cream text, and glowing blue borders.
 
 ## Usage
 
-To start the installation, boot from the official Arch Linux ISO and run the following command:
+To initialize Kyber OS, boot from the Arch Linux ISO and run:
 
 ```bash
-bash <(curl -sL https://raw.githubusercontent.com/username/arch-installer/main/install.sh)
+bash <(curl -sL https://raw.githubusercontent.com/username/kyber-os/main/install.sh)
 ```
-
-*(Note: Replace the URL with the actual raw link to your script)*
 
 ## Disclaimer
 
-This script will format the selected disk. Please ensure you have backed up all important data before proceeding.
+"Do or do not, there is no try." This script will format the selected disk. Ensure all critical data is backed up before plotting your coordinates.
+
+May the Source be with you.
