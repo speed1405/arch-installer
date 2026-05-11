@@ -75,7 +75,17 @@ pre_flight_check() {
         error_exit "Uplink failed. Please establish an active connection to the Holocron network."
     fi
 
-    # 3. Timezone Check (South Coast / Sydney)
+    # 3. Disk Space Check (Minimum 40GB)
+    HAS_SPACE=false
+    for disk in $(lsblk -dn -o NAME,SIZE -b | awk '$2 >= 42949672960 {print $1}'); do
+        HAS_SPACE=true
+        break
+    done
+    if [ "$HAS_SPACE" = false ]; then
+        error_exit "No Sector found with at least 40GB of space. Expansion required."
+    fi
+
+    # 4. Timezone Check (South Coast / Sydney)
     CURRENT_TZ=$(timedatectl show --property=Timezone --value)
     if [ "$CURRENT_TZ" != "Australia/Sydney" ]; then
         log "Warning: Chronometer not synced to Sector: Shoalhaven Heads (Sydney)."
@@ -131,10 +141,28 @@ disk_partition() {
             }
             ;;
         manual)
-            dialog --title "Manual Navigation" --msgbox "Launching cfdisk... Please plot your own coordinates." 10 60
+            dialog --title "Manual Navigation" --msgbox "Launching cfdisk... Please plot your own coordinates.\n\nEnsure you create an EFI partition (ef00) and a Root partition (8300)." 12 60
             cfdisk "$SELECTED_DISK"
-            # User must ensure partitions exist. For simplicity in a script, auto is safer.
-            error_exit "Manual mode requires precise coordinates. Please use Auto-Pilot for this version of Kyber OS."
+
+            # Simple heuristic check to see if partitions were created
+            if ! lsblk -n "$SELECTED_DISK" | grep -q "[0-9]"; then
+                error_exit "No coordinates detected. Manual navigation failed."
+            fi
+
+            # We would need to ask for the partition names in manual mode,
+            # but for this script, we expect the user to follow the standard layout or use Auto-Pilot.
+            # To be safe and meet the "beginner-friendly" goal, we'll guide them back to Auto-Pilot if they are unsure.
+            if ! confirm "Manual Plotting Complete?" "Have you finished partitioning and are ready to format?"; then
+                disk_partition
+                return
+            fi
+
+            # Identify partitions (naive but works if user created them in order)
+            PART_EFI="${SELECTED_DISK}1"; PART_ROOT="${SELECTED_DISK}2"
+            [[ "$SELECTED_DISK" == *"nvme"* ]] || [[ "$SELECTED_DISK" == *"mmcblk"* ]] && {
+                PART_EFI="${SELECTED_DISK}p1"; PART_ROOT="${SELECTED_DISK}p2"
+            }
+            # Skip swap for manual unless we want to be very complex
             ;;
     esac
 
@@ -406,14 +434,35 @@ bindsym \$mod+Shift+q kill
 EOF
 
     # Custom MOTD
-    cat <<'EOF' > /mnt/etc/motd
+    if [[ "$FORCE_PATH" == "jedi" ]]; then
+        cat <<'EOF' > /mnt/etc/motd
 [ KYBER OS – SECTOR: SHOALHAVEN HEADS ]
-Current Uplink: Stable
-Defenses: Active (Firewall Up)
-Location: Seven Mile Beach Outpost
+Current Uplink: Stable (The Force is with us)
+Location: Seven Mile Beach Jedi Outpost
+
+"There is no emotion, there is peace.
+ There is no ignorance, there is knowledge.
+ There is no passion, there is serenity.
+ There is no chaos, there is harmony.
+ There is no death, there is the Force."
 
 "Do or do not, there is no try... only sudo."
 EOF
+    else
+        cat <<'EOF' > /mnt/etc/motd
+[ KYBER OS – SECTOR: SHOALHAVEN HEADS ]
+Current Uplink: Stable (Power of the Dark Side)
+Location: Seven Mile Beach Sith Citadel
+
+"Peace is a lie, there is only passion.
+ Through passion, I gain strength.
+ Through strength, I gain power.
+ Through power, I gain victory.
+ Through victory, my chains are broken."
+
+"I find your lack of sudo disturbing."
+EOF
+    fi
 
     log "Lore and aesthetic modules deployed."
 }
