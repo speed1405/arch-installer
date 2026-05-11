@@ -150,6 +150,11 @@ disk_partition() {
 }
 
 setup_user() {
+    FORCE_PATH=$(dialog --title "The Force" --menu "Choose your path through the galaxy:" 15 60 2 \
+        "jedi" "The Light Side (Blue/Green/Cream)" \
+        "sith" "The Dark Side (Red/Black)" 3>&1 1>&2 2>&3)
+    [ -z "$FORCE_PATH" ] && FORCE_PATH="jedi"
+
     USERNAME=$(dialog --title "Registering New Recruit" --inputbox "Enter recruit name (username):" 10 60 "" 3>&1 1>&2 2>&3)
     USER_PASSWORD=$(dialog --title "Recruit Password" --passwordbox "Establish security clearance (user password):" 10 60 3>&1 1>&2 2>&3)
     ROOT_PASSWORD=$(dialog --title "Command Clearances" --passwordbox "Establish high-level command clearance (root password):" 10 60 3>&1 1>&2 2>&3)
@@ -174,6 +179,14 @@ select_kernel() {
 
 compile_custom_kernel() {
     log "Bleeding the Crystal (Custom Kernel Compilation)..."
+
+    # Question-based tuning
+    CUSTOM_KNAME=$(dialog --title "Crystal Naming" --inputbox "Enter a name for your custom crystal (kernel):" 10 60 "kyber-crystal" 3>&1 1>&2 2>&3)
+    [ -z "$CUSTOM_KNAME" ] && CUSTOM_KNAME="kyber-crystal"
+
+    OPT_PERF=$(confirm "Kyber Tuning" "Optimize for maximum combat performance (O3 optimization)?" && echo "YES" || echo "NO")
+    OPT_STRIP=$(confirm "Kyber Tuning" "Strip debugging runes to reduce crystal size?" && echo "YES" || echo "NO")
+
     arch-chroot /mnt pacman -S base-devel bc cpio pahole xmlto kmod inetutils wget --noconfirm
 
     arch-chroot /mnt /bin/bash -c "
@@ -184,22 +197,33 @@ compile_custom_kernel() {
     tar -xf linux-\$KVER.tar.xz
     cd linux-\$KVER
     zcat /proc/config.gz > .config || make defconfig
+
+    if [[ \"$OPT_PERF\" == \"YES\" ]]; then
+        echo \"Tuning crystal for maximum performance...\"
+        sed -i \"s/CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y/CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3=y/\" .config
+    fi
+
+    if [[ \"$OPT_STRIP\" == \"YES\" ]]; then
+        echo \"Stripping debugging runes...\"
+        sed -i \"s/CONFIG_DEBUG_INFO=y/CONFIG_DEBUG_INFO_NONE=y/\" .config
+    fi
+
     echo 'Calibrating Crystal (nconfig)...'
     make nconfig
     echo 'Energizing build... (This may take cycles)'
     make -j\$(nproc)
     make modules_install
-    cp -v arch/x86/boot/bzImage /boot/vmlinuz-custom
+    cp -v arch/x86/boot/bzImage /boot/vmlinuz-$CUSTOM_KNAME
     "
 
     # Setup mkinitcpio
     arch-chroot /mnt /bin/bash <<EOF
     cat <<EOT > /etc/mkinitcpio.d/custom.preset
 ALL_config="/etc/mkinitcpio.conf"
-ALL_kver="/boot/vmlinuz-custom"
+ALL_kver="/boot/vmlinuz-$CUSTOM_KNAME"
 PRESETS=('default' 'fallback')
-default_image="/boot/initramfs-custom.img"
-fallback_image="/boot/initramfs-custom-fallback.img"
+default_image="/boot/initramfs-$CUSTOM_KNAME.img"
+fallback_image="/boot/initramfs-$CUSTOM_KNAME-fallback.img"
 EOT
     mkinitcpio -p custom
 EOF
@@ -308,7 +332,7 @@ EOF
 }
 
 deploy_dotfiles() {
-    log "Deploying Teak and Chrome dotfiles to /etc/skel..."
+    log "Deploying $FORCE_PATH dotfiles to /etc/skel..."
     mkdir -p /mnt/etc/skel/.config/{hypr,i3,kitty,neofetch}
 
     # Custom Neofetch for Kyber OS
@@ -326,25 +350,33 @@ print_info() {
 ascii_distro="arch_small"
 EOF
 
-    # Kitty config with Teak & Chrome
+    if [[ "$FORCE_PATH" == "jedi" ]]; then
+        # Jedi Theme (Blue/Green/Cream)
+        BG="#1A1B26"; FG="#f3dfb4"; ACCENT="#00D4FF"; BORDER="#7d812c"
+    else
+        # Sith Theme (Red/Black)
+        BG="#0D0000"; FG="#FF0000"; ACCENT="#FF0000"; BORDER="#330000"
+    fi
+
+    # Kitty config
     cat <<EOF > /mnt/etc/skel/.config/kitty/kitty.conf
-background #1A1B26
-foreground #f3dfb4
+background $BG
+foreground $FG
 color0 #4d3327
-color1 #D65D0E
-color2 #00D4FF
-cursor #00D4FF
+color1 $ACCENT
+color2 $ACCENT
+cursor $ACCENT
 EOF
 
-    # Hyprland Teak & Chrome
+    # Hyprland
     cat <<EOF > /mnt/etc/skel/.config/hypr/hyprland.conf
 monitor=,preferred,auto,1
-exec-once = waybar & swaybg -c "#1A1B26"
+exec-once = waybar & swaybg -c "$BG"
 general {
     gaps_in = 5
     gaps_out = 10
     border_size = 2
-    col.active_border = rgba(00D4FFee) rgba(D65D0Eee) 45deg
+    col.active_border = rgba(${ACCENT:1}ee) rgba(${BORDER:1}ee) 45deg
     col.inactive_border = rgba(4d3327aa)
 }
 decoration {
@@ -356,15 +388,15 @@ bind = SUPER, C, killactive,
 bind = SUPER, M, exit,
 EOF
 
-    # i3-wm Teak & Chrome
+    # i3-wm
     cat <<EOF > /mnt/etc/skel/.config/i3/config
 set \$mod Mod4
 font pango:monospace 10
-exec --no-startup-id feh --bg-fill "#1A1B26"
+exec --no-startup-id feh --bg-fill "$BG"
 exec --no-startup-id polybar
-# Teak & Chrome Colors
-client.focused #00D4FF #00D4FF #f3dfb4 #D65D0E
-client.unfocused #4d3327 #4d3327 #f3dfb4 #4d3327
+# Star Wars Colors
+client.focused $ACCENT $ACCENT $FG $BORDER
+client.unfocused $BG $BG $FG $BG
 bindsym \$mod+Return exec kitty
 bindsym \$mod+Shift+q kill
 EOF
@@ -383,25 +415,28 @@ EOF
 }
 
 setup_bootloader() {
-    BOOTLOADER=$(dialog --title "Command Link" --menu "Choose a command link (Bootloader):" 15 60 2 \
-        "systemd-boot" "Modern Imperial Link" \
-        "grub" "Traditional Rebel Link" 3>&1 1>&2 2>&3)
-
     case $BOOTLOADER in
         systemd-boot)
             log "Installing systemd-boot..."
             arch-chroot /mnt bootctl install
+
+            # Detect Microcode for initrd
+            UCODE_INITRD=""
+            [ -n "$UCODE" ] && UCODE_INITRD="initrd  /$UCODE.img"
+
             cat <<EOF > /mnt/boot/loader/entries/arch.conf
 title   Kyber OS
 linux   /vmlinuz-$KERNEL
+$UCODE_INITRD
 initrd  /initramfs-$KERNEL.img
 options root=PARTUUID=$(blkid -s PARTUUID -o value $PART_ROOT) rw
 EOF
             if [ "$COMPILE_CUSTOM" = true ]; then
                 cat <<EOF > /mnt/boot/loader/entries/arch-custom.conf
-title   Kyber OS (Bleeding Crystal)
-linux   /vmlinuz-custom
-initrd  /initramfs-custom.img
+title   Kyber OS ($CUSTOM_KNAME)
+linux   /vmlinuz-$CUSTOM_KNAME
+$UCODE_INITRD
+initrd  /initramfs-$CUSTOM_KNAME.img
 options root=PARTUUID=$(blkid -s PARTUUID -o value $PART_ROOT) rw
 EOF
             fi
@@ -456,10 +491,11 @@ EOF
     select_software
     select_disk
 
-    # Disk selection also sets BOOTLOADER for the manifest display
+    # Command Link selection
     BOOTLOADER=$(dialog --title "Command Link" --menu "Select your command link:" 15 60 2 \
         "systemd-boot" "Modern Imperial" \
         "grub" "Traditional Rebel" 3>&1 1>&2 2>&3)
+    [ -z "$BOOTLOADER" ] && error_exit "No command link selected."
 
     display_manifest
 
