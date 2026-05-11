@@ -105,8 +105,10 @@ select_disk() {
 
     SELECTED_DISK=$(dialog --title "Plotting Hyperspace Coordinates" \
         --menu "Select a Sector (Disk) to initialize. WARNING: All data will be vaporized!" 17 75 7 \
-        "${DISK_OPTS[@]}" 3>&1 1>&2 2>&3)
+        "${DISK_OPTS[@]}" 3>&1 1>&2 2>&3) || dialog_status=$?
+    dialog_status=${dialog_status:-0}
 
+    [ "$dialog_status" -ne 0 ] && error_exit "Sector selection cancelled. Mission aborted."
     [ -z "$SELECTED_DISK" ] && error_exit "No Sector selected. Mission aborted."
 }
 
