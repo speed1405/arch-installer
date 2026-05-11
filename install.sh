@@ -364,6 +364,9 @@ configure_system() {
     useradd -m -G wheel "$USERNAME"
     echo "$USERNAME:$USER_PASSWORD" | chpasswd
     echo "%wheel ALL=(ALL) ALL" > /etc/sudoers.d/wheel
+    chown root:root /etc/sudoers.d/wheel
+    chmod 0440 /etc/sudoers.d/wheel
+    visudo -cf /etc/sudoers
 
     # Git Config Helper
     sudo -u $USERNAME git config --global user.name "$USERNAME"
