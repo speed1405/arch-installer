@@ -288,10 +288,11 @@ select_software() {
         "gnome" "Clean Imperial Interface (GNOME)" OFF \
         "mate" "Retro Rebel Interface (MATE)" OFF 3>&1 1>&2 2>&3)
 
-    WINDOW_MGR=$(dialog --title "Combat Interfaces" --checklist "Select Window Managers (Combat):" 15 60 3 \
+    WINDOW_MGR=$(dialog --title "Combat Interfaces" --checklist "Select Window Managers (Combat):" 15 60 4 \
         "hyprland" "Fast Maneuverability (Hyprland)" OFF \
         "i3-wm" "Tactical Grid (i3-wm)" OFF \
-        "dwm" "Dynamic Minimalist (dwm)" OFF 3>&1 1>&2 2>&3)
+        "dwm" "Dynamic Minimalist (dwm)" OFF \
+        "openbox" "Rebel Outpost (Openbox)" OFF 3>&1 1>&2 2>&3)
 
     BUNDLES=$(dialog --title "Holocron Knowledge" --checklist "Synchronize Knowledge Bundles:" 15 60 1 \
         "coding" "[Jedi Sentinel] Dev Suite" ON 3>&1 1>&2 2>&3)
@@ -327,7 +328,8 @@ install_selected_software() {
     [[ $DESKTOP_ENV == *"gnome"* ]] && PKGS+=" gnome gnome-extra gdm"
     [[ $DESKTOP_ENV == *"mate"* ]] && PKGS+=" mate mate-extra lightdm lightdm-gtk-greeter"
     [[ $WINDOW_MGR == *"hyprland"* ]] && PKGS+=" hyprland waybar swaybg dunst kitty rofi"
-    [[ $WINDOW_MGR == *"i3-wm"* ]] && PKGS+=" i3-wm polybar feh dunst kitty rofi"
+    [[ $WINDOW_MGR == *"i3-wm"* ]] && PKGS+=" i3-wm polybar xorg-xsetroot dunst kitty rofi"
+    [[ $WINDOW_MGR == *"openbox"* ]] && PKGS+=" openbox obconf lxappearance-obconf xorg-xsetroot kitty rofi"
 
     GPU_TYPE=$(lspci | grep -iE 'vga|3d' | grep -iE 'nvidia|amd|intel' -o | head -n 1 | tr '[:upper:]' '[:lower:]')
     case $GPU_TYPE in
@@ -423,7 +425,7 @@ EOF
 
 deploy_dotfiles() {
     log "Deploying $FORCE_PATH dotfiles to /etc/skel..."
-    mkdir -p /mnt/etc/skel/.config/{hypr,i3,kitty,neofetch}
+    mkdir -p /mnt/etc/skel/.config/{hypr,i3,openbox,kitty,neofetch}
 
     # xinitrc for dwm/i3 (Take the first one selected as primary)
     # Map package names to binary names
@@ -432,6 +434,7 @@ deploy_dotfiles() {
         hyprland) BIN_WM="Hyprland" ;;
         i3-wm)    BIN_WM="i3"       ;;
         dwm)      BIN_WM="dwm"      ;;
+        openbox)  BIN_WM="openbox-session" ;;
         *)        BIN_WM="$RAW_WM"  ;;
     esac
 
@@ -482,6 +485,15 @@ EOF
         BG="#0D0000"; FG="#FF0000"; ACCENT="#FF0000"; BORDER="#330000"
     fi
 
+    # Background logic
+    if [[ "$FORCE_PATH" == "jedi" ]]; then
+        # Force background to Blue/Teak
+        BG_HEX="#1A1B26"
+    else
+        # Force background to Sith Black/Red
+        BG_HEX="#0D0000"
+    fi
+
     # Kitty config
     cat <<EOF > /mnt/etc/skel/.config/kitty/kitty.conf
 background $BG
@@ -517,13 +529,29 @@ EOF
     cat <<EOF > /mnt/etc/skel/.config/i3/config
 set \$mod Mod4
 font pango:monospace 10
-exec --no-startup-id feh --bg-fill "$BG"
+exec --no-startup-id xsetroot -solid "$BG"
 exec --no-startup-id polybar
 # Star Wars Colors
 client.focused $ACCENT $ACCENT $FG $BORDER
 client.unfocused $BG $BG $FG $BG
 bindsym \$mod+Return exec kitty
 bindsym \$mod+Shift+q kill
+EOF
+
+    # Openbox config
+    mkdir -p /mnt/etc/skel/.config/openbox
+    cat <<EOF > /mnt/etc/skel/.config/openbox/rc.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <theme>
+    <name>Clearlooks</name>
+    <cornerRadius>4</cornerRadius>
+  </theme>
+</openbox_config>
+EOF
+
+    cat <<EOF > /mnt/etc/skel/.config/openbox/autostart
+xsetroot -solid "$BG" &
 EOF
 
     # Custom MOTD
