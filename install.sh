@@ -411,7 +411,7 @@ EOF
     cat <<'EOF' > /mnt/etc/motd
 [ KYBER OS – SECTOR: SHOALHAVEN HEADS ]
 Current Uplink: Stable
-Defenses: Active (Firewall Up)
+Defenses: Not Configured
 Location: Seven Mile Beach Outpost
 
 "Do or do not, there is no try... only sudo."
