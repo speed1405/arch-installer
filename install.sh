@@ -311,6 +311,13 @@ install_base() {
 
     pacstrap /mnt base $KERNEL linux-firmware base-devel networkmanager sudo nano git $UCODE --noconfirm
     genfstab -U /mnt >> /mnt/etc/fstab
+
+    # Enable Multilib
+    if [[ "$ENABLE_MULTILIB" == "YES" ]]; then
+        log "Unlocking [multilib] archives..."
+        sed -i "/\[multilib\]/,/Include/s/^#//" /mnt/etc/pacman.conf
+        arch-chroot /mnt pacman -Sy
+    fi
 }
 
 install_selected_software() {
@@ -334,6 +341,9 @@ install_selected_software() {
 
     # DWM Installation and Theming
     if [[ $WINDOW_MGR == *"dwm"* ]]; then
+        log "Acquiring DWM dependencies..."
+        arch-chroot /mnt pacman -S libx11 libxft libxinerama --noconfirm
+
         log "Initializing DWM with $FORCE_PATH theme..."
         arch-chroot /mnt /bin/bash <<EOF
         cd /tmp
@@ -416,10 +426,32 @@ deploy_dotfiles() {
     mkdir -p /mnt/etc/skel/.config/{hypr,i3,kitty,neofetch}
 
     # xinitrc for dwm/i3 (Take the first one selected as primary)
-    PRIMARY_WM=$(echo $WINDOW_MGR | awk '{print $1}' | tr -d '"')
+    # Map package names to binary names
+    RAW_WM=$(echo $WINDOW_MGR | awk '{print $1}' | tr -d '"')
+    case $RAW_WM in
+        hyprland) BIN_WM="Hyprland" ;;
+        i3-wm)    BIN_WM="i3"       ;;
+        dwm)      BIN_WM="dwm"      ;;
+        *)        BIN_WM="$RAW_WM"  ;;
+    esac
+
     cat <<EOF > /mnt/etc/skel/.xinitrc
-exec $PRIMARY_WM
+exec $BIN_WM
 EOF
+
+    # DWM Desktop Entry for Display Managers
+    if [[ $WINDOW_MGR == *"dwm"* ]]; then
+        mkdir -p /mnt/usr/share/xsessions
+        cat <<EOF > /mnt/usr/share/xsessions/dwm.desktop
+[Desktop Entry]
+Encoding=UTF-8
+Name=DWM
+Comment=Dynamic Window Manager
+Exec=dwm
+Icon=dwm
+Type=XSession
+EOF
+    fi
 
     # Custom Neofetch for Kyber OS
     cat <<'EOF' > /mnt/etc/skel/.config/neofetch/config.conf
@@ -434,6 +466,12 @@ print_info() {
 }
 # ASCII Kyber Crystal
 ascii_distro="arch_small"
+
+# Custom ASCII Logo (Simulation)
+#   /\\
+#  |  |
+#  |  |
+#   \\/
 EOF
 
     if [[ "$FORCE_PATH" == "jedi" ]]; then
@@ -605,6 +643,9 @@ EOF
         "systemd-boot" "Modern Imperial" \
         "grub" "Traditional Rebel" 3>&1 1>&2 2>&3)
     [ -z "$BOOTLOADER" ] && error_exit "No command link selected."
+
+    # Multilib selection
+    ENABLE_MULTILIB=$(confirm "Multilib Repository" "Enable [multilib] repository (Recommended for 32-bit apps like Steam/Gaming)?" && echo "YES" || echo "NO")
 
     display_manifest
 
