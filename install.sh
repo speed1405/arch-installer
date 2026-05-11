@@ -75,7 +75,17 @@ pre_flight_check() {
         error_exit "Uplink failed. Please establish an active connection to the Holocron network."
     fi
 
-    # 3. Timezone Check (South Coast / Sydney)
+    # 3. Disk Space Check (Minimum 40GB)
+    HAS_SPACE=false
+    for disk in $(lsblk -dn -o NAME,SIZE -b | awk '$2 >= 42949672960 {print $1}'); do
+        HAS_SPACE=true
+        break
+    done
+    if [ "$HAS_SPACE" = false ]; then
+        error_exit "No Sector found with at least 40GB of space. Expansion required."
+    fi
+
+    # 4. Timezone Check (South Coast / Sydney)
     CURRENT_TZ=$(timedatectl show --property=Timezone --value)
     if [ "$CURRENT_TZ" != "Australia/Sydney" ]; then
         log "Warning: Chronometer not synced to Sector: Shoalhaven Heads (Sydney)."
@@ -105,10 +115,8 @@ select_disk() {
 
     SELECTED_DISK=$(dialog --title "Plotting Hyperspace Coordinates" \
         --menu "Select a Sector (Disk) to initialize. WARNING: All data will be vaporized!" 17 75 7 \
-        "${DISK_OPTS[@]}" 3>&1 1>&2 2>&3) || dialog_status=$?
-    dialog_status=${dialog_status:-0}
+        "${DISK_OPTS[@]}" 3>&1 1>&2 2>&3)
 
-    [ "$dialog_status" -ne 0 ] && error_exit "Sector selection cancelled. Mission aborted."
     [ -z "$SELECTED_DISK" ] && error_exit "No Sector selected. Mission aborted."
 }
 
@@ -135,10 +143,28 @@ disk_partition() {
             fi
             ;;
         manual)
-            dialog --title "Manual Navigation" --msgbox "Launching cfdisk... Please plot your own coordinates." 10 60
+            dialog --title "Manual Navigation" --msgbox "Launching cfdisk... Please plot your own coordinates.\n\nEnsure you create an EFI partition (ef00) and a Root partition (8300)." 12 60
             cfdisk "$SELECTED_DISK"
-            # User must ensure partitions exist. For simplicity in a script, auto is safer.
-            error_exit "Manual mode requires precise coordinates. Please use Auto-Pilot for this version of Kyber OS."
+
+            # Simple heuristic check to see if partitions were created
+            if ! lsblk -n "$SELECTED_DISK" | grep -q "[0-9]"; then
+                error_exit "No coordinates detected. Manual navigation failed."
+            fi
+
+            # We would need to ask for the partition names in manual mode,
+            # but for this script, we expect the user to follow the standard layout or use Auto-Pilot.
+            # To be safe and meet the "beginner-friendly" goal, we'll guide them back to Auto-Pilot if they are unsure.
+            if ! confirm "Manual Plotting Complete?" "Have you finished partitioning and are ready to format?"; then
+                disk_partition
+                return
+            fi
+
+            # Identify partitions (naive but works if user created them in order)
+            PART_EFI="${SELECTED_DISK}1"; PART_ROOT="${SELECTED_DISK}2"
+            [[ "$SELECTED_DISK" == *"nvme"* ]] || [[ "$SELECTED_DISK" == *"mmcblk"* ]] && {
+                PART_EFI="${SELECTED_DISK}p1"; PART_ROOT="${SELECTED_DISK}p2"
+            }
+            # Skip swap for manual unless we want to be very complex
             ;;
     esac
 
@@ -185,8 +211,8 @@ compile_custom_kernel() {
     log "Bleeding the Crystal (Custom Kernel Compilation)..."
 
     # Question-based tuning
-    CUSTOM_KNAME=$(dialog --title "Crystal Naming" --inputbox "Enter a name for your custom crystal (kernel):" 10 60 "kyber-crystal" 3>&1 1>&2 2>&3)
-    [ -z "$CUSTOM_KNAME" ] && CUSTOM_KNAME="kyber-crystal"
+    CUSTOM_KNAME=$(dialog --title "Crystal Naming" --inputbox "Enter a name for your custom crystal (kernel):" 10 60 "linux-kyberos" 3>&1 1>&2 2>&3)
+    [ -z "$CUSTOM_KNAME" ] && CUSTOM_KNAME="linux-kyberos"
 
     OPT_PERF=$(confirm "Kyber Tuning" "Optimize for maximum combat performance (O3 optimization)?" && echo "YES" || echo "NO")
     OPT_STRIP=$(confirm "Kyber Tuning" "Strip debugging runes to reduce crystal size?" && echo "YES" || echo "NO")
@@ -210,6 +236,16 @@ compile_custom_kernel() {
     if [[ \"$OPT_STRIP\" == \"YES\" ]]; then
         echo \"Stripping debugging runes...\"
         sed -i \"s/CONFIG_DEBUG_INFO=y/CONFIG_DEBUG_INFO_NONE=y/\" .config
+    fi
+
+    # Inject Kyber OS identity into the kernel version
+    echo \"Injecting Kyber OS identity...\"
+    if grep -q '^CONFIG_LOCALVERSION=' .config; then
+        sed -i \"s/^CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\\\"-kyberos\\\"/\" .config
+    elif grep -q '^# CONFIG_LOCALVERSION is not set$' .config; then
+        sed -i \"s/^# CONFIG_LOCALVERSION is not set$/CONFIG_LOCALVERSION=\\\"-kyberos\\\"/\" .config
+    else
+        echo 'CONFIG_LOCALVERSION=\"-kyberos\"' >> .config
     fi
 
     echo 'Calibrating Crystal (nconfig)...'
@@ -330,6 +366,7 @@ configure_system() {
     echo "%wheel ALL=(ALL) ALL" > /etc/sudoers.d/wheel
     chown root:root /etc/sudoers.d/wheel
     chmod 0440 /etc/sudoers.d/wheel
+    visudo -cf /etc/sudoers
 
     # Git Config Helper
     sudo -u $USERNAME git config --global user.name "$USERNAME"
@@ -408,14 +445,35 @@ bindsym \$mod+Shift+q kill
 EOF
 
     # Custom MOTD
-    cat <<'EOF' > /mnt/etc/motd
+    if [[ "$FORCE_PATH" == "jedi" ]]; then
+        cat <<'EOF' > /mnt/etc/motd
 [ KYBER OS – SECTOR: SHOALHAVEN HEADS ]
-Current Uplink: Stable
-Defenses: Not Configured
-Location: Seven Mile Beach Outpost
+Current Uplink: Stable (The Force is with us)
+Location: Seven Mile Beach Jedi Outpost
+
+"There is no emotion, there is peace.
+ There is no ignorance, there is knowledge.
+ There is no passion, there is serenity.
+ There is no chaos, there is harmony.
+ There is no death, there is the Force."
 
 "Do or do not, there is no try... only sudo."
 EOF
+    else
+        cat <<'EOF' > /mnt/etc/motd
+[ KYBER OS – SECTOR: SHOALHAVEN HEADS ]
+Current Uplink: Stable (Power of the Dark Side)
+Location: Seven Mile Beach Sith Citadel
+
+"Peace is a lie, there is only passion.
+ Through passion, I gain strength.
+ Through strength, I gain power.
+ Through power, I gain victory.
+ Through victory, my chains are broken."
+
+"I find your lack of sudo disturbing."
+EOF
+    fi
 
     log "Lore and aesthetic modules deployed."
 }
