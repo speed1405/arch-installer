@@ -98,6 +98,16 @@ pre_flight_check() {
     log "Pre-flight scans complete. Uplink stable."
 }
 
+optimize_mirrors() {
+    log "Optimizing Holocron network uplinks (Mirrors)..."
+    # Ensure reflector is installed in the live environment
+    if command -v reflector >/dev/null 2>&1; then
+        reflector --latest 20 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
+    else
+        log "Warning: reflector tool not found. Using default uplinks."
+    fi
+}
+
 # --- Modular Functions ---
 
 select_disk() {
@@ -136,11 +146,9 @@ disk_partition() {
             PART_EFI="${SELECTED_DISK}1"
             PART_SWAP="${SELECTED_DISK}2"
             PART_ROOT="${SELECTED_DISK}3"
-            if [[ "$SELECTED_DISK" == *"nvme"* ]] || [[ "$SELECTED_DISK" == *"mmcblk"* ]]; then
-                PART_EFI="${SELECTED_DISK}p1"
-                PART_SWAP="${SELECTED_DISK}p2"
-                PART_ROOT="${SELECTED_DISK}p3"
-            fi
+            [[ "$SELECTED_DISK" == *"nvme"* ]] || [[ "$SELECTED_DISK" == *"mmcblk"* ]] && {
+                PART_EFI="${SELECTED_DISK}p1"; PART_SWAP="${SELECTED_DISK}p2"; PART_ROOT="${SELECTED_DISK}p3"
+            }
             ;;
         manual)
             dialog --title "Manual Navigation" --msgbox "Launching cfdisk... Please plot your own coordinates.\n\nEnsure you create an EFI partition (ef00) and a Root partition (8300)." 12 60
@@ -159,24 +167,25 @@ disk_partition() {
                 return
             fi
 
-            # Identify partitions (naive but works if user created them in order)
-            PART_EFI="${SELECTED_DISK}1"; PART_ROOT="${SELECTED_DISK}2"
-            [[ "$SELECTED_DISK" == *"nvme"* ]] || [[ "$SELECTED_DISK" == *"mmcblk"* ]] && {
-                PART_EFI="${SELECTED_DISK}p1"; PART_ROOT="${SELECTED_DISK}p2"
-            }
-            # Skip swap for manual unless we want to be very complex
+            # Manual Identification
+            PART_EFI=$(dialog --title "Identify EFI" --inputbox "Enter the EFI partition path (e.g., ${SELECTED_DISK}1):" 10 60 3>&1 1>&2 2>&3)
+            PART_ROOT=$(dialog --title "Identify Root" --inputbox "Enter the Root partition path (e.g., ${SELECTED_DISK}2):" 10 60 3>&1 1>&2 2>&3)
+            PART_SWAP=$(dialog --title "Identify Swap" --inputbox "Enter the Swap partition path (Leave blank if none):" 10 60 3>&1 1>&2 2>&3)
             ;;
     esac
 
     log "Vaporizing old data and formatting..."
     mkfs.fat -F32 "$PART_EFI"
-    mkswap "$PART_SWAP"
     mkfs.ext4 -F "$PART_ROOT"
 
     mount "$PART_ROOT" /mnt
     mkdir -p /mnt/boot
     mount "$PART_EFI" /mnt/boot
-    swapon "$PART_SWAP"
+
+    if [ -n "$PART_SWAP" ]; then
+        mkswap "$PART_SWAP"
+        swapon "$PART_SWAP"
+    fi
 }
 
 setup_user() {
@@ -240,18 +249,22 @@ compile_custom_kernel() {
 
     # Inject Kyber OS identity into the kernel version
     echo \"Injecting Kyber OS identity...\"
-    if grep -q '^CONFIG_LOCALVERSION=' .config; then
-        sed -i \"s/^CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\\\"-kyberos\\\"/\" .config
-    elif grep -q '^# CONFIG_LOCALVERSION is not set$' .config; then
-        sed -i \"s/^# CONFIG_LOCALVERSION is not set$/CONFIG_LOCALVERSION=\\\"-kyberos\\\"/\" .config
-    else
-        echo 'CONFIG_LOCALVERSION=\"-kyberos\"' >> .config
-    fi
+    sed -i \"s/^CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\\\"-kyberos\\\"/\" .config || echo 'CONFIG_LOCALVERSION=\"-kyberos\"' >> .config
 
     echo 'Calibrating Crystal (nconfig)...'
     make nconfig
-    echo 'Energizing build... (This may take cycles)'
-    make -j\$(nproc)
+    echo 'Scanning Crystal (Energizing build)... This may take many cycles.'
+    # Simple spinner simulation during make
+    make -j\$(nproc) &
+    PID=\$!
+    chars=\"/-\\|\"
+    while kill -0 \$PID 2>/dev/null; do
+        for i in {1..4}; do
+            echo -ne \"\\r[\${chars:\$i-1:1}] Scanning Crystal... \"
+            sleep 0.5
+        done
+    done
+    wait \$PID
     make modules_install
     cp -v arch/x86/boot/bzImage /boot/vmlinuz-$CUSTOM_KNAME
     "
@@ -275,9 +288,10 @@ select_software() {
         "gnome" "Clean Imperial Interface (GNOME)" OFF \
         "mate" "Retro Rebel Interface (MATE)" OFF 3>&1 1>&2 2>&3)
 
-    WINDOW_MGR=$(dialog --title "Combat Interfaces" --checklist "Select Window Managers (Combat):" 15 60 2 \
+    WINDOW_MGR=$(dialog --title "Combat Interfaces" --checklist "Select Window Managers (Combat):" 15 60 3 \
         "hyprland" "Fast Maneuverability (Hyprland)" OFF \
-        "i3-wm" "Tactical Grid (i3-wm)" OFF 3>&1 1>&2 2>&3)
+        "i3-wm" "Tactical Grid (i3-wm)" OFF \
+        "dwm" "Dynamic Minimalist (dwm)" OFF 3>&1 1>&2 2>&3)
 
     BUNDLES=$(dialog --title "Holocron Knowledge" --checklist "Synchronize Knowledge Bundles:" 15 60 1 \
         "coding" "[Jedi Sentinel] Dev Suite" ON 3>&1 1>&2 2>&3)
@@ -318,6 +332,31 @@ install_selected_software() {
     arch-chroot /mnt pacman -S $PKGS --noconfirm
     arch-chroot /mnt systemctl enable NetworkManager
 
+    # DWM Installation and Theming
+    if [[ $WINDOW_MGR == *"dwm"* ]]; then
+        log "Initializing DWM with $FORCE_PATH theme..."
+        arch-chroot /mnt /bin/bash <<EOF
+        cd /tmp
+        git clone https://git.suckless.org/dwm
+        cd dwm
+        # Define theme colors
+        if [[ "$FORCE_PATH" == "jedi" ]]; then
+            BG="#1A1B26"; FG="#f3dfb4"; SEL="#00D4FF"; SELFG="#1A1B26"
+        else
+            BG="#0D0000"; FG="#FF0000"; SEL="#FF0000"; SELFG="#000000"
+        fi
+
+        # Patch config.def.h (Correct standard dwm variable names)
+        sed -i "s/static const char col_gray1\[\] *= .*/static const char col_gray1[] = \"\$BG\";/" config.def.h
+        sed -i "s/static const char col_gray2\[\] *= .*/static const char col_gray2[] = \"\$BG\";/" config.def.h
+        sed -i "s/static const char col_gray3\[\] *= .*/static const char col_gray3[] = \"\$FG\";/" config.def.h
+        sed -i "s/static const char col_gray4\[\] *= .*/static const char col_gray4[] = \"\$SELFG\";/" config.def.h
+        sed -i "s/static const char col_cyan\[\] *= .*/static const char col_cyan[] = \"\$SEL\";/" config.def.h
+
+        make install
+EOF
+    fi
+
     # Enable Display Manager
     if [[ $DESKTOP_ENV == *"gnome"* ]]; then
         arch-chroot /mnt systemctl enable gdm
@@ -330,7 +369,8 @@ install_selected_software() {
 
 install_jedi_sentinel() {
     log "Installing [Jedi Sentinel] Developer Bundle..."
-    PKGS="gcc cmake dotnet-sdk mono-msbuild docker github-cli discord neofetch"
+    # Note: mono-msbuild is AUR, removed from here
+    PKGS="gcc cmake dotnet-sdk docker github-cli discord neofetch"
     arch-chroot /mnt pacman -S $PKGS --noconfirm
 }
 
@@ -346,8 +386,8 @@ EOF
     rm /mnt/etc/sudoers.d/aur-build
 
     if [[ $BUNDLES == *"coding"* ]]; then
-        log "Acquiring VS Code via Black Market..."
-        arch-chroot /mnt sudo -u $USERNAME $AUR_HELPER -S visual-studio-code-bin --noconfirm
+        log "Acquiring VS Code and Mono Game tools via Black Market..."
+        arch-chroot /mnt sudo -u $USERNAME $AUR_HELPER -S visual-studio-code-bin mono-msbuild --noconfirm
     fi
 }
 
@@ -364,9 +404,6 @@ configure_system() {
     useradd -m -G wheel "$USERNAME"
     echo "$USERNAME:$USER_PASSWORD" | chpasswd
     echo "%wheel ALL=(ALL) ALL" > /etc/sudoers.d/wheel
-    chown root:root /etc/sudoers.d/wheel
-    chmod 0440 /etc/sudoers.d/wheel
-    visudo -cf /etc/sudoers
 
     # Git Config Helper
     sudo -u $USERNAME git config --global user.name "$USERNAME"
@@ -377,6 +414,12 @@ EOF
 deploy_dotfiles() {
     log "Deploying $FORCE_PATH dotfiles to /etc/skel..."
     mkdir -p /mnt/etc/skel/.config/{hypr,i3,kitty,neofetch}
+
+    # xinitrc for dwm/i3 (Take the first one selected as primary)
+    PRIMARY_WM=$(echo $WINDOW_MGR | awk '{print $1}' | tr -d '"')
+    cat <<EOF > /mnt/etc/skel/.xinitrc
+exec $PRIMARY_WM
+EOF
 
     # Custom Neofetch for Kyber OS
     cat <<'EOF' > /mnt/etc/skel/.config/neofetch/config.conf
@@ -431,7 +474,8 @@ bind = SUPER, C, killactive,
 bind = SUPER, M, exit,
 EOF
 
-    # i3-wm
+    # i3-wm (Ensure it only runs if i3 is actually the selected WM or if multiple are installed)
+    mkdir -p /mnt/etc/skel/.config/i3
     cat <<EOF > /mnt/etc/skel/.config/i3/config
 set \$mod Mod4
 font pango:monospace 10
@@ -547,6 +591,7 @@ EOF
     sleep 2
 
     pre_flight_check
+    optimize_mirrors
 
     msg "Welcome to The Kyber Link. Your droid initialization terminal is ready."
 
