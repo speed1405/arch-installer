@@ -105,10 +105,8 @@ select_disk() {
 
     SELECTED_DISK=$(dialog --title "Plotting Hyperspace Coordinates" \
         --menu "Select a Sector (Disk) to initialize. WARNING: All data will be vaporized!" 17 75 7 \
-        "${DISK_OPTS[@]}" 3>&1 1>&2 2>&3) || dialog_status=$?
-    dialog_status=${dialog_status:-0}
+        "${DISK_OPTS[@]}" 3>&1 1>&2 2>&3)
 
-    [ "$dialog_status" -ne 0 ] && error_exit "Sector selection cancelled. Mission aborted."
     [ -z "$SELECTED_DISK" ] && error_exit "No Sector selected. Mission aborted."
 }
 
@@ -128,11 +126,9 @@ disk_partition() {
             PART_EFI="${SELECTED_DISK}1"
             PART_SWAP="${SELECTED_DISK}2"
             PART_ROOT="${SELECTED_DISK}3"
-            if [[ "$SELECTED_DISK" == *"nvme"* ]] || [[ "$SELECTED_DISK" == *"mmcblk"* ]]; then
-                PART_EFI="${SELECTED_DISK}p1"
-                PART_SWAP="${SELECTED_DISK}p2"
-                PART_ROOT="${SELECTED_DISK}p3"
-            fi
+            [[ "$SELECTED_DISK" == *"nvme"* ]] || [[ "$SELECTED_DISK" == *"mmcblk"* ]] && {
+                PART_EFI="${SELECTED_DISK}p1"; PART_SWAP="${SELECTED_DISK}p2"; PART_ROOT="${SELECTED_DISK}p3"
+            }
             ;;
         manual)
             dialog --title "Manual Navigation" --msgbox "Launching cfdisk... Please plot your own coordinates." 10 60
@@ -185,8 +181,8 @@ compile_custom_kernel() {
     log "Bleeding the Crystal (Custom Kernel Compilation)..."
 
     # Question-based tuning
-    CUSTOM_KNAME=$(dialog --title "Crystal Naming" --inputbox "Enter a name for your custom crystal (kernel):" 10 60 "kyber-crystal" 3>&1 1>&2 2>&3)
-    [ -z "$CUSTOM_KNAME" ] && CUSTOM_KNAME="kyber-crystal"
+    CUSTOM_KNAME=$(dialog --title "Crystal Naming" --inputbox "Enter a name for your custom crystal (kernel):" 10 60 "linux-kyberos" 3>&1 1>&2 2>&3)
+    [ -z "$CUSTOM_KNAME" ] && CUSTOM_KNAME="linux-kyberos"
 
     OPT_PERF=$(confirm "Kyber Tuning" "Optimize for maximum combat performance (O3 optimization)?" && echo "YES" || echo "NO")
     OPT_STRIP=$(confirm "Kyber Tuning" "Strip debugging runes to reduce crystal size?" && echo "YES" || echo "NO")
@@ -211,6 +207,10 @@ compile_custom_kernel() {
         echo \"Stripping debugging runes...\"
         sed -i \"s/CONFIG_DEBUG_INFO=y/CONFIG_DEBUG_INFO_NONE=y/\" .config
     fi
+
+    # Inject Kyber OS identity into the kernel version
+    echo \"Injecting Kyber OS identity...\"
+    sed -i \"s/^CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\\\"-kyberos\\\"/\" .config || echo 'CONFIG_LOCALVERSION=\"-kyberos\"' >> .config
 
     echo 'Calibrating Crystal (nconfig)...'
     make nconfig
@@ -328,8 +328,6 @@ configure_system() {
     useradd -m -G wheel "$USERNAME"
     echo "$USERNAME:$USER_PASSWORD" | chpasswd
     echo "%wheel ALL=(ALL) ALL" > /etc/sudoers.d/wheel
-    chown root:root /etc/sudoers.d/wheel
-    chmod 0440 /etc/sudoers.d/wheel
 
     # Git Config Helper
     sudo -u $USERNAME git config --global user.name "$USERNAME"
@@ -411,7 +409,7 @@ EOF
     cat <<'EOF' > /mnt/etc/motd
 [ KYBER OS – SECTOR: SHOALHAVEN HEADS ]
 Current Uplink: Stable
-Defenses: Not Configured
+Defenses: Active (Firewall Up)
 Location: Seven Mile Beach Outpost
 
 "Do or do not, there is no try... only sudo."
