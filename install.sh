@@ -240,7 +240,13 @@ compile_custom_kernel() {
 
     # Inject Kyber OS identity into the kernel version
     echo \"Injecting Kyber OS identity...\"
-    sed -i \"s/^CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\\\"-kyberos\\\"/\" .config || echo 'CONFIG_LOCALVERSION=\"-kyberos\"' >> .config
+    if grep -q '^CONFIG_LOCALVERSION=' .config; then
+        sed -i \"s/^CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\\\"-kyberos\\\"/\" .config
+    elif grep -q '^# CONFIG_LOCALVERSION is not set$' .config; then
+        sed -i \"s/^# CONFIG_LOCALVERSION is not set$/CONFIG_LOCALVERSION=\\\"-kyberos\\\"/\" .config
+    else
+        echo 'CONFIG_LOCALVERSION=\"-kyberos\"' >> .config
+    fi
 
     echo 'Calibrating Crystal (nconfig)...'
     make nconfig
