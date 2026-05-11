@@ -81,6 +81,26 @@ setup_user() {
     ROOT_PASSWORD=$(whiptail --title "Root Password" --passwordbox "Enter password for root:" 10 60 3>&1 1>&2 2>&3)
 }
 
+select_disk() {
+    # Generate list of disks, excluding loop devices
+    DISK_LIST_RAW=$(lsblk -dnp -o NAME,SIZE,MODEL | grep -v "loop")
+    DISK_LIST=""
+    while read -r line; do
+        disk=$(echo "$line" | awk '{print $1}')
+        info=$(echo "$line" | cut -d' ' -f2-)
+        DISK_LIST+="$disk \"$info\" "
+    done <<< "$DISK_LIST_RAW"
+
+    if [ -z "$DISK_LIST" ]; then
+        error_exit "No suitable disks found for installation."
+    fi
+
+    SELECTED_DISK=$(eval whiptail --title \"Select Installation Disk\" \
+        --menu \"Select the disk where Arch Linux will be installed.\n\nWARNING: ALL DATA ON THE SELECTED DISK WILL BE ERASED!\" 17 75 7 $DISK_LIST 3>&1 1>&2 2>&3)
+
+    [ -z "$SELECTED_DISK" ] && error_exit "No disk selected. Installation aborted."
+}
+
 set_locale() {
     log "Gathering locale and timezone..."
     TIMEZONE=$(whiptail --title "Timezone" --inputbox "Enter your timezone (e.g., Europe/London):" 10 60 "UTC" 3>&1 1>&2 2>&3)
@@ -214,7 +234,7 @@ select_software() {
     # WM Selection
     WINDOW_MGR=$(whiptail --title "Window Managers" --checklist "Select Window Managers to install:" 15 60 2 \
         "hyprland" "Hyprland (Wayland)" OFF \
-        "i3-gaps" "i3-gaps (X11)" OFF 3>&1 1>&2 2>&3)
+        "i3-gaps" "i3-wm (X11 with gaps)" OFF 3>&1 1>&2 2>&3)
 
     # Software Bundles
     BUNDLES=$(whiptail --title "Software Bundles" --checklist "Select software bundles to install:" 15 60 3 \
@@ -239,7 +259,7 @@ install_selected_software() {
     [[ $DESKTOP_ENV == *"mate"* ]] && PKGS+=" mate mate-extra lightdm lightdm-gtk-greeter"
 
     [[ $WINDOW_MGR == *"hyprland"* ]] && PKGS+=" hyprland waybar swaybg dunst kitty rofi"
-    [[ $WINDOW_MGR == *"i3-gaps"* ]] && PKGS+=" i3-gaps polybar feh dunst kitty rofi"
+    [[ $WINDOW_MGR == *"i3-gaps"* ]] && PKGS+=" i3-wm polybar feh dunst kitty rofi"
 
     # Drivers (GPU detection)
     GPU_TYPE=$(lspci | grep -iE 'vga|3d' | grep -iE 'nvidia|amd|intel' -o | head -n 1 | tr '[:upper:]' '[:lower:]')
@@ -438,9 +458,7 @@ main() {
     select_software
 
     # Disk Selection (Part of Phase 1)
-    DISK_LIST=$(lsblk -dnp -o NAME,SIZE,MODEL | awk '{print $1 " \"" $2 " " $3 " " $4 "\""}')
-    SELECTED_DISK=$(eval whiptail --title \"Select Disk\" --menu \"Choose the disk to install Arch Linux on.\" 15 70 5 $DISK_LIST 3>&1 1>&2 2>&3)
-    [ -z "$SELECTED_DISK" ] && error_exit "No disk selected."
+    select_disk
 
     # Bootloader Selection (Part of Phase 1)
     BOOTLOADER=$(whiptail --title "Bootloader" --menu "Choose a bootloader:" 15 60 2 \
