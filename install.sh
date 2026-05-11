@@ -126,9 +126,11 @@ disk_partition() {
             PART_EFI="${SELECTED_DISK}1"
             PART_SWAP="${SELECTED_DISK}2"
             PART_ROOT="${SELECTED_DISK}3"
-            [[ "$SELECTED_DISK" == *"nvme"* ]] || [[ "$SELECTED_DISK" == *"mmcblk"* ]] && {
-                PART_EFI="${SELECTED_DISK}p1"; PART_SWAP="${SELECTED_DISK}p2"; PART_ROOT="${SELECTED_DISK}p3"
-            }
+            if [[ "$SELECTED_DISK" == *"nvme"* ]] || [[ "$SELECTED_DISK" == *"mmcblk"* ]]; then
+                PART_EFI="${SELECTED_DISK}p1"
+                PART_SWAP="${SELECTED_DISK}p2"
+                PART_ROOT="${SELECTED_DISK}p3"
+            fi
             ;;
         manual)
             dialog --title "Manual Navigation" --msgbox "Launching cfdisk... Please plot your own coordinates." 10 60
