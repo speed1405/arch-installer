@@ -7,7 +7,7 @@ set -e
 
 # --- Variables & Configuration ---
 LOG_FILE="/tmp/install.log"
-DEFAULT_CUSTOM_KNAME="linux-kyber"
+DEFAULT_CUSTOM_KERNEL_NAME="linux-kyber"
 exec 9>>"$LOG_FILE"
 trap 'exec 9>&-' EXIT
 
@@ -230,8 +230,8 @@ compile_custom_kernel() {
     log "Bleeding the Crystal (Custom Kernel Compilation)..."
 
     # Question-based tuning
-    CUSTOM_KNAME=$(whiptail --title "Crystal Naming" --inputbox "Enter a name for your custom crystal (kernel):" 10 60 "$DEFAULT_CUSTOM_KNAME" 3>&1 1>&2 2>&3)
-    [ -z "$CUSTOM_KNAME" ] && CUSTOM_KNAME="$DEFAULT_CUSTOM_KNAME"
+    CUSTOM_KNAME=$(whiptail --title "Crystal Naming" --inputbox "Enter a name for your custom crystal (kernel):" 10 60 "$DEFAULT_CUSTOM_KERNEL_NAME" 3>&1 1>&2 2>&3)
+    [ -z "$CUSTOM_KNAME" ] && CUSTOM_KNAME="$DEFAULT_CUSTOM_KERNEL_NAME"
 
     OPT_PERF=$(confirm "Kyber Tuning" "Optimize for maximum combat performance (O3 optimization)?" && echo "YES" || echo "NO")
     OPT_STRIP=$(confirm "Kyber Tuning" "Strip debugging runes to reduce crystal size?" && echo "YES" || echo "NO")
