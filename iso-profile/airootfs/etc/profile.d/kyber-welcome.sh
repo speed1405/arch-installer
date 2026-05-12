@@ -1,7 +1,12 @@
 #!/bin/bash
 # Shown to root on first login in the Kyber OS live environment
-if [ "$(id -u)" -eq 0 ] && [ -f /root/install.sh ]; then
+if [ "$(id -u)" -eq 0 ] && [ -n "$DISPLAY" ]; then
+    # Already in a GUI, maybe?
+    :
+elif [ "$(id -u)" -eq 0 ]; then
     echo ""
-    echo "  Run /root/install.sh to begin the Kyber OS installation."
+    echo "  Welcome to the Kyber OS Live Environment."
+    echo "  Starting the initialization sector GUI..."
     echo ""
+    startx
 fi

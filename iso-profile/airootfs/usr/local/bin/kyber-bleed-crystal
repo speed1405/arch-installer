@@ -1,0 +1,43 @@
+#!/bin/bash
+# Kyber OS Kernel Compilation Helper
+
+TARGET_ROOT="/"
+CUSTOM_KNAME="linux-kyber"
+
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --target) TARGET_ROOT="$2"; shift ;;
+        --name) CUSTOM_KNAME="$2"; shift ;;
+    esac
+    shift
+done
+
+echo "Bleeding the Crystal (Custom Kernel Compilation) in $TARGET_ROOT..."
+
+arch-chroot "$TARGET_ROOT" pacman -S base-devel bc cpio pahole xmlto kmod inetutils wget --noconfirm
+
+arch-chroot "$TARGET_ROOT" /bin/bash -c "
+cd /tmp
+KVER=\$(wget -qO- https://www.kernel.org/finger_banner | head -n 1 | awk '{print \$NF}')
+MAJOR=\$(echo \$KVER | cut -d. -f1)
+wget https://cdn.kernel.org/pub/linux/kernel/v\$MAJOR.x/linux-\$KVER.tar.xz
+tar -xf linux-\$KVER.tar.xz
+cd linux-\$KVER
+zcat /proc/config.gz > .config || make defconfig
+sed -i \"s/^CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\\\"-kyber\\\"/\" .config || echo 'CONFIG_LOCALVERSION=\"-kyber\"' >> .config
+make -j\$(nproc) bzImage modules
+make modules_install
+cp -v arch/x86/boot/bzImage /boot/vmlinuz-$CUSTOM_KNAME
+"
+
+# Setup mkinitcpio
+arch-chroot "$TARGET_ROOT" /bin/bash <<EOF
+cat <<EOT > /etc/mkinitcpio.d/custom.preset
+ALL_config="/etc/mkinitcpio.conf"
+ALL_kver="/boot/vmlinuz-$CUSTOM_KNAME"
+PRESETS=('default' 'fallback')
+default_image="/boot/initramfs-$CUSTOM_KNAME.img"
+fallback_image="/boot/initramfs-$CUSTOM_KNAME-fallback.img"
+EOT
+mkinitcpio -p custom
+EOF

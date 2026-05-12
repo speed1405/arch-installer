@@ -1,0 +1,87 @@
+#!/bin/bash
+# Kyber OS Dotfile Deployment Helper
+
+FORCE_PATH="jedi"
+TARGET_ROOT="/"
+
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --force-path) FORCE_PATH="$2"; shift ;;
+        --target) TARGET_ROOT="$2"; shift ;;
+    esac
+    shift
+done
+
+echo "Deploying $FORCE_PATH dotfiles to $TARGET_ROOT/etc/skel..."
+mkdir -p "$TARGET_ROOT/etc/skel/.config/"{hypr,i3,openbox,kitty,neofetch}
+
+# --- Theme Configuration ---
+if [[ "$FORCE_PATH" == "jedi" ]]; then
+    BG="#1A1B26"; FG="#f3dfb4"; ACCENT="#00D4FF"; BORDER="#7d812c"
+else
+    BG="#0D0000"; FG="#FF0000"; ACCENT="#FF0000"; BORDER="#330000"
+fi
+
+# Kitty
+cat <<EOF > "$TARGET_ROOT/etc/skel/.config/kitty/kitty.conf"
+background $BG
+foreground $FG
+color0 #4d3327
+color1 $ACCENT
+color2 $ACCENT
+cursor $ACCENT
+EOF
+
+# Hyprland
+cat <<EOF > "$TARGET_ROOT/etc/skel/.config/hypr/hyprland.conf"
+monitor=,preferred,auto,1
+exec-once = waybar & swaybg -c "$BG"
+general {
+    gaps_in = 5
+    gaps_out = 10
+    border_size = 2
+    col.active_border = rgba(${ACCENT:1}ee) rgba(${BORDER:1}ee) 45deg
+    col.inactive_border = rgba(4d3327aa)
+}
+decoration {
+    rounding = 10
+}
+bind = SUPER, Q, exec, kitty
+bind = SUPER, C, killactive,
+bind = SUPER, M, exit,
+EOF
+
+# i3
+cat <<EOF > "$TARGET_ROOT/etc/skel/.config/i3/config"
+set \$mod Mod4
+font pango:monospace 10
+exec --no-startup-id xsetroot -solid "$BG"
+exec --no-startup-id polybar
+client.focused $ACCENT $ACCENT $FG $BORDER
+client.unfocused $BG $BG $FG $BG
+bindsym \$mod+Return exec kitty
+bindsym \$mod+Shift+q kill
+EOF
+
+# MOTD
+if [[ "$FORCE_PATH" == "jedi" ]]; then
+    cat <<'EOF' > "$TARGET_ROOT/etc/motd"
+[ KYBER OS – SECTOR: SHOALHAVEN HEADS ]
+"There is no emotion, there is peace.
+ There is no ignorance, there is knowledge.
+ There is no passion, there is serenity.
+ There is no chaos, there is harmony.
+ There is no death, there is the Force."
+EOF
+else
+    cat <<'EOF' > "$TARGET_ROOT/etc/motd"
+[ KYBER OS – SECTOR: SHOALHAVEN HEADS ]
+"Peace is a lie, there is only passion.
+ Through passion, I gain strength.
+ Through strength, I gain power.
+ Through power, I gain victory.
+ Through victory, my chains are broken."
+EOF
+fi
+
+echo "Lore and aesthetic modules deployed."
