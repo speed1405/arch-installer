@@ -3,3 +3,26 @@
 libnewt
 reflector
 wget
+
+# GUI & Staging Area
+xorg-server
+xorg-xinit
+openbox
+kitty
+python-pyqt5
+feh
+xorg-xsetroot
+
+# Calamares and dependencies
+calamares
+kpmcore
+yaml-cpp
+boost-libs
+parted
+gptfdisk
+squashfs-tools
+ckbcomp
+hwinfo
+qt5-svg
+qt5-xmlpatterns
+qt5-webengine

@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+import sys
+import subprocess
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLabel, QHBoxLayout
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont, QPalette, QColor
+
+class KyberLauncher(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle('Kyber OS Installation Sector')
+        self.setFixedSize(600, 400)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+
+        # Star Wars / Retro-futurist Palette
+        # Background: Dark (Obsidian)
+        # Accents: Cyan / Orange
+        palette = self.palette()
+        palette.setColor(QPalette.Window, QColor("#1A1B26"))
+        palette.setColor(QPalette.WindowText, QColor("#f3dfb4"))
+        self.setPalette(palette)
+        self.setAutoFillBackground(True)
+
+        layout = QVBoxLayout()
+
+        title = QLabel("THE KYBER LINK")
+        title.setAlignment(Qt.AlignCenter)
+        title.setFont(QFont('Courier', 30, QFont.Bold))
+        title.setStyleSheet("color: #00D4FF; margin-top: 20px;")
+        layout.addWidget(title)
+
+        subtitle = QLabel("Select your initialization protocol")
+        subtitle.setAlignment(Qt.AlignCenter)
+        subtitle.setFont(QFont('Courier', 14))
+        subtitle.setStyleSheet("color: #f3dfb4; margin-bottom: 30px;")
+        layout.addWidget(subtitle)
+
+        btn_layout = QHBoxLayout()
+
+        self.btn_calamares = QPushButton("Graphical Installer\n(Calamares)")
+        self.btn_calamares.setFixedSize(250, 100)
+        self.btn_calamares.setFont(QFont('Courier', 12, QFont.Bold))
+        self.btn_calamares.setStyleSheet("""
+            QPushButton {
+                background-color: #00D4FF;
+                color: #1A1B26;
+                border-radius: 10px;
+                border: 2px solid #00D4FF;
+            }
+            QPushButton:hover {
+                background-color: #1A1B26;
+                color: #00D4FF;
+            }
+        """)
+        self.btn_calamares.clicked.connect(self.launch_calamares)
+        btn_layout.addWidget(self.btn_calamares)
+
+        self.btn_terminal = QPushButton("Terminal Installer\n(The Kyber Link)")
+        self.btn_terminal.setFixedSize(250, 100)
+        self.btn_terminal.setFont(QFont('Courier', 12, QFont.Bold))
+        self.btn_terminal.setStyleSheet("""
+            QPushButton {
+                background-color: #D65D0E;
+                color: #1A1B26;
+                border-radius: 10px;
+                border: 2px solid #D65D0E;
+            }
+            QPushButton:hover {
+                background-color: #1A1B26;
+                color: #D65D0E;
+            }
+        """)
+        self.btn_terminal.clicked.connect(self.launch_terminal)
+        btn_layout.addWidget(self.btn_terminal)
+
+        layout.addLayout(btn_layout)
+
+        footer = QLabel("May the Source be with you.")
+        footer.setAlignment(Qt.AlignCenter)
+        footer.setFont(QFont('Courier', 10, QFont.StyleItalic))
+        footer.setStyleSheet("color: #7d812c; margin-top: 20px;")
+        layout.addWidget(footer)
+
+        self.setLayout(layout)
+
+    def launch_calamares(self):
+        subprocess.Popen(["sudo", "calamares"])
+        QApplication.quit()
+
+    def launch_terminal(self):
+        # Open terminal and run the script
+        subprocess.Popen(["kitty", "sudo", "/root/install.sh"])
+        QApplication.quit()
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    ex = KyberLauncher()
+    ex.show()
+    sys.exit(app.exec_())

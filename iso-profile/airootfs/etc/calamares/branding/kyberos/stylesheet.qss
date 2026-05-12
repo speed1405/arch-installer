@@ -1,0 +1,22 @@
+/* Kyber OS Theme for Calamares */
+QWidget {
+    background-color: #1A1B26;
+    color: #f3dfb4;
+    font-family: "Courier";
+}
+
+QPushButton {
+    background-color: #00D4FF;
+    color: #1A1B26;
+    border-radius: 4px;
+    padding: 5px;
+}
+
+QPushButton:hover {
+    background-color: #f3dfb4;
+}
+
+QListView {
+    background-color: #0D0000;
+    border: 1px solid #7d812c;
+}

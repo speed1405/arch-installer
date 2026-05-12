@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+import sys
+import os
+import shutil
+
+# This script is designed to be called by Calamares shellprocess
+# It reads variables from globalstorage and executes the Kyber OS logic
+
+# Calamares provides the path to globalstorage as the first argument in some versions,
+# but we'll use the environment variable if available or look for it.
+# For simplicity, we can use a small python shim to bridge calamares variables.
+
+def get_calamares_var(key, default=""):
+    # In a shellprocess module, we don't have direct access to Python globalstorage
+    # unless we use the Calamares Python interface.
+    # However, we can use the 'config' passed to the shellprocess.
+    # To keep it simple, I will use a different approach:
+    # Write variables to a temporary file in the QML modules.
+
+    var_file = f"/tmp/calamares_{key}"
+    if os.path.exists(var_file):
+        with open(var_file, 'r') as f:
+            return f.read().strip()
+    return default
+
+force_path = get_calamares_var("force_path", "jedi")
+bundle_coding = get_calamares_var("bundle_coding", "false")
+bundle_gaming = get_calamares_var("bundle_gaming", "false")
+bundle_media = get_calamares_var("bundle_media", "false")
+bleed_crystal = get_calamares_var("bleed_crystal", "false")
+
+# Find the target root
+target_root = ""
+for d in os.listdir("/tmp"):
+    if d.startswith("calamares-root-"):
+        target_root = os.path.join("/tmp", d)
+        break
+
+if not target_root:
+    print("Error: Could not find Calamares target root.")
+    sys.exit(1)
+
+print(f"Kyber OS Post-Installation Synchronization in {target_root}...")
+
+# Execute postinstall
+os.system(f"/usr/local/bin/kyber-postinstall --force-path {force_path} --target {target_root}")
+
+# Install Bundles
+if bundle_coding == "true":
+    os.system(f"arch-chroot {target_root} pacman -S gcc cmake dotnet-sdk docker github-cli discord neofetch --noconfirm")
+
+if bundle_gaming == "true":
+    os.system(f"arch-chroot {target_root} pacman -S steam lutris gamemode --noconfirm")
+
+if bundle_media == "true":
+    os.system(f"arch-chroot {target_root} pacman -S vlc gst-libav libreoffice-fresh --noconfirm")
+
+# Bleed the Crystal
+if bleed_crystal == "true":
+    os.system(f"/usr/local/bin/kyber-bleed-crystal --target {target_root}")
+
+print("Synchronization Complete.")
