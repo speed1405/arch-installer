@@ -63,15 +63,16 @@ jobs:
           cat iso-profile/extra-packages.x86_64 >> /tmp/kyber-profile/packages.x86_64
 
           # ── Deploy custom airootfs overlay files ─────────────────────
-          mkdir -p /tmp/kyber-profile/airootfs/etc/profile.d
-          cp iso-profile/airootfs/etc/motd /tmp/kyber-profile/airootfs/etc/motd
-          cp iso-profile/airootfs/etc/profile.d/kyber-welcome.sh /tmp/kyber-profile/airootfs/etc/profile.d/kyber-welcome.sh
+          # Copy the entire airootfs overlay from the repo to the profile
+          # Using '.' instead of '*' to include hidden files (like .xinitrc)
+          cp -r iso-profile/airootfs/. /tmp/kyber-profile/airootfs/
           chmod 755 /tmp/kyber-profile/airootfs/etc/profile.d/kyber-welcome.sh
+          chmod 755 /tmp/kyber-profile/airootfs/usr/local/bin/*
 
           # ── Embed the installer ──────────────────────────────────────
           mkdir -p /tmp/kyber-profile/airootfs/root
           cp install.sh /tmp/kyber-profile/airootfs/root/install.sh
-          chmod 755  /tmp/kyber-profile/airootfs/root/install.sh
+          chmod 755 /tmp/kyber-profile/airootfs/root/install.sh
 
       - name: Build ISO
         run: mkarchiso -v -w /tmp/archiso-work -o /tmp/out /tmp/kyber-profile
