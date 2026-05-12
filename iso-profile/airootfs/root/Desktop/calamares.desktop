@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Version=1.0
-Name=Install Arch Linux
+Name=Install Kyber OS
 GenericName=Graphical Installer
 Comment=Launch the Calamares graphical installer
 Exec=/usr/bin/calamares
