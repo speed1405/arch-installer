@@ -1,5 +1,5 @@
 # Extra packages on top of the archiso releng defaults
 # needed by The Kyber Link install script
-whiptail
+libnewt
 reflector
 wget
