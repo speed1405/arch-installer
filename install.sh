@@ -7,45 +7,30 @@ set -e
 
 # --- Variables & Configuration ---
 LOG_FILE="/tmp/install.log"
+DEFAULT_CUSTOM_KERNEL_NAME="linux-kyber"
 exec 9>>"$LOG_FILE"
 trap 'exec 9>&-' EXIT
 
-# Custom DIALOGRC for the aesthetic
-export DIALOGRC="/tmp/.kyber_dialogrc"
-
-cat <<EOF > "$DIALOGRC"
-use_shadow = OFF
-use_colors = ON
-screen_color = (CYAN,BLUE,ON)
-dialog_color = (WHITE,BLUE,OFF)
-title_color = (YELLOW,BLUE,ON)
-border_color = (RED,BLUE,ON)
-button_active_color = (WHITE,CYAN,ON)
-button_inactive_color = (BLACK,WHITE,OFF)
-button_key_inactive_color = (RED,WHITE,OFF)
-button_label_active_color = (BLACK,CYAN,ON)
-button_label_inactive_color = (BLACK,WHITE,OFF)
-position_indicator_color = (YELLOW,BLUE,ON)
-menubox_color = (WHITE,BLUE,OFF)
-item_color = (WHITE,BLUE,OFF)
-item_selected_color = (BLACK,CYAN,ON)
-tag_color = (YELLOW,BLUE,ON)
-tag_selected_color = (YELLOW,CYAN,ON)
-tag_key_color = (YELLOW,BLUE,ON)
-tag_key_selected_color = (YELLOW,CYAN,ON)
-check_color = (WHITE,BLUE,OFF)
-check_selected_color = (BLACK,CYAN,ON)
-uarrow_color = (GREEN,BLUE,ON)
-darrow_color = (GREEN,BLUE,ON)
-EOF
-
-# Note: The hex codes from the prompt (#1A1B26, #D65D0E, #00D4FF) are mapped to
-# the closest standard ncurses colors (BLUE/BLACK, RED/ORANGE, CYAN).
+# Custom whiptail/newt colors for the aesthetic
+export NEWT_COLORS='
+root=cyan,blue
+border=red,blue
+window=white,blue
+shadow=black,black
+title=yellow,blue
+button=black,white
+actbutton=black,cyan
+checkbox=white,blue
+actcheckbox=yellow,cyan
+entry=white,blue
+compactbutton=yellow,blue
+actlistbox=black,cyan
+'
 
 # --- Helper Functions ---
 
 error_exit() {
-    dialog --title "ERROR: SYSTEM MALFUNCTION" --msgbox "$1" 10 60
+    whiptail --title "ERROR: SYSTEM MALFUNCTION" --msgbox "$1" 10 60
     echo "ERROR: $1" >&2
     exit 1
 }
@@ -58,11 +43,21 @@ log() {
 }
 
 msg() {
-    dialog --title "THE KYBER LINK" --msgbox "$1" 10 60
+    whiptail --title "THE KYBER LINK" --msgbox "$1" 10 60
 }
 
 confirm() {
-    dialog --title "$1" --yesno "$2" 10 60
+    whiptail --title "$1" --yesno "$2" 10 60
+}
+
+print_centered_block() {
+    local term_width pad line
+    term_width=$(tput cols 2>/dev/null || echo 80)
+    while IFS= read -r line; do
+        pad=$(( (term_width - ${#line}) / 2 ))
+        [ "$pad" -lt 0 ] && pad=0
+        printf '%*s%s\n' "$pad" '' "$line"
+    done
 }
 
 has_selection() {
@@ -138,7 +133,7 @@ select_disk() {
         error_exit "No suitable Sectors (Disks) found."
     fi
 
-    SELECTED_DISK=$(dialog --title "Plotting Hyperspace Coordinates" \
+    SELECTED_DISK=$(whiptail --title "Plotting Hyperspace Coordinates" \
         --menu "Select a Sector (Disk) to initialize. WARNING: All data will be vaporized!" 17 75 7 \
         "${DISK_OPTS[@]}" 3>&1 1>&2 2>&3)
 
@@ -146,7 +141,7 @@ select_disk() {
 }
 
 disk_partition() {
-    PART_MODE=$(dialog --title "Hyperspace Plotting" --menu "Choose your navigation mode:" 15 60 2 \
+    PART_MODE=$(whiptail --title "Hyperspace Plotting" --menu "Choose your navigation mode:" 15 60 2 \
         "auto" "Auto-Pilot (Recommended for New Recruits)" \
         "manual" "Manual Navigation (cfdisk)" 3>&1 1>&2 2>&3)
 
@@ -166,7 +161,7 @@ disk_partition() {
             }
             ;;
         manual)
-            dialog --title "Manual Navigation" --msgbox "Launching cfdisk... Please plot your own coordinates.\n\nEnsure you create an EFI partition (ef00) and a Root partition (8300)." 12 60
+            whiptail --title "Manual Navigation" --msgbox "Launching cfdisk... Please plot your own coordinates.\n\nEnsure you create an EFI partition (ef00) and a Root partition (8300)." 12 60
             cfdisk "$SELECTED_DISK"
 
             # Simple heuristic check to see if partitions were created
@@ -183,9 +178,9 @@ disk_partition() {
             fi
 
             # Manual Identification
-            PART_EFI=$(dialog --title "Identify EFI" --inputbox "Enter the EFI partition path (e.g., ${SELECTED_DISK}1):" 10 60 3>&1 1>&2 2>&3)
-            PART_ROOT=$(dialog --title "Identify Root" --inputbox "Enter the Root partition path (e.g., ${SELECTED_DISK}2):" 10 60 3>&1 1>&2 2>&3)
-            PART_SWAP=$(dialog --title "Identify Swap" --inputbox "Enter the Swap partition path (Leave blank if none):" 10 60 3>&1 1>&2 2>&3)
+            PART_EFI=$(whiptail --title "Identify EFI" --inputbox "Enter the EFI partition path (e.g., ${SELECTED_DISK}1):" 10 60 3>&1 1>&2 2>&3)
+            PART_ROOT=$(whiptail --title "Identify Root" --inputbox "Enter the Root partition path (e.g., ${SELECTED_DISK}2):" 10 60 3>&1 1>&2 2>&3)
+            PART_SWAP=$(whiptail --title "Identify Swap" --inputbox "Enter the Swap partition path (Leave blank if none):" 10 60 3>&1 1>&2 2>&3)
             ;;
     esac
 
@@ -204,18 +199,18 @@ disk_partition() {
 }
 
 setup_user() {
-    FORCE_PATH=$(dialog --title "The Force" --menu "Choose your path through the galaxy:" 15 60 2 \
+    FORCE_PATH=$(whiptail --title "The Force" --menu "Choose your path through the galaxy:" 15 60 2 \
         "jedi" "The Light Side (Blue/Green/Cream)" \
         "sith" "The Dark Side (Red/Black)" 3>&1 1>&2 2>&3)
     [ -z "$FORCE_PATH" ] && FORCE_PATH="jedi"
 
-    USERNAME=$(dialog --title "Registering New Recruit" --inputbox "Enter recruit name (username):" 10 60 "" 3>&1 1>&2 2>&3)
-    USER_PASSWORD=$(dialog --title "Recruit Password" --passwordbox "Establish security clearance (user password):" 10 60 3>&1 1>&2 2>&3)
-    ROOT_PASSWORD=$(dialog --title "Command Clearances" --passwordbox "Establish high-level command clearance (root password):" 10 60 3>&1 1>&2 2>&3)
+    USERNAME=$(whiptail --title "Registering New Recruit" --inputbox "Enter recruit name (username):" 10 60 "" 3>&1 1>&2 2>&3)
+    USER_PASSWORD=$(whiptail --title "Recruit Password" --passwordbox "Establish security clearance (user password):" 10 60 3>&1 1>&2 2>&3)
+    ROOT_PASSWORD=$(whiptail --title "Command Clearances" --passwordbox "Establish high-level command clearance (root password):" 10 60 3>&1 1>&2 2>&3)
 }
 
 select_kernel() {
-    KERNEL=$(dialog --title "The Kyber Crystal" --menu "Choose a core for your holocron (Kernel):" 15 60 4 \
+    KERNEL=$(whiptail --title "The Kyber Crystal" --menu "Choose a core for your holocron (Kernel):" 15 60 4 \
         "linux" "Standard Crystal" \
         "linux-zen" "Zen-Optimized Crystal" \
         "linux-lts" "Stable Legacy Crystal" \
@@ -235,8 +230,8 @@ compile_custom_kernel() {
     log "Bleeding the Crystal (Custom Kernel Compilation)..."
 
     # Question-based tuning
-    CUSTOM_KNAME=$(dialog --title "Crystal Naming" --inputbox "Enter a name for your custom crystal (kernel):" 10 60 "linux-kyberos" 3>&1 1>&2 2>&3)
-    [ -z "$CUSTOM_KNAME" ] && CUSTOM_KNAME="linux-kyberos"
+    CUSTOM_KNAME=$(whiptail --title "Crystal Naming" --inputbox "Enter a name for your custom crystal (kernel):" 10 60 "$DEFAULT_CUSTOM_KERNEL_NAME" 3>&1 1>&2 2>&3)
+    [ -z "$CUSTOM_KNAME" ] && CUSTOM_KNAME="$DEFAULT_CUSTOM_KERNEL_NAME"
 
     OPT_PERF=$(confirm "Kyber Tuning" "Optimize for maximum combat performance (O3 optimization)?" && echo "YES" || echo "NO")
     OPT_STRIP=$(confirm "Kyber Tuning" "Strip debugging runes to reduce crystal size?" && echo "YES" || echo "NO")
@@ -264,7 +259,7 @@ compile_custom_kernel() {
 
     # Inject Kyber OS identity into the kernel version
     echo \"Injecting Kyber OS identity...\"
-    sed -i \"s/^CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\\\"-kyberos\\\"/\" .config || echo 'CONFIG_LOCALVERSION=\"-kyberos\"' >> .config
+    sed -i \"s/^CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\\\"-kyber\\\"/\" .config || echo 'CONFIG_LOCALVERSION=\"-kyber\"' >> .config
 
     echo 'Calibrating Crystal (nconfig)...'
     make nconfig
@@ -299,7 +294,7 @@ EOF
 }
 
 select_software() {
-    INTERFACES=$(dialog --title "Holocron Interfaces" --checklist "Select Desktop Environments and Window Managers:" 18 70 7 \
+    INTERFACES=$(whiptail --title "Holocron Interfaces" --checklist "Select Desktop Environments and Window Managers:" 18 70 7 \
         "plasma-desktop" "Desktop Environment: Modern Jedi Interface (Plasma)" OFF \
         "gnome" "Desktop Environment: Clean Imperial Interface (GNOME)" OFF \
         "mate" "Desktop Environment: Retro Rebel Interface (MATE)" OFF \
@@ -307,15 +302,12 @@ select_software() {
         "i3-wm" "Tactical Grid (i3-wm)" OFF \
         "dwm" "Dynamic Minimalist (dwm)" OFF \
         "openbox" "Rebel Outpost (Openbox)" OFF 3>&1 1>&2 2>&3)
-    dialog_status=$?
-    [ "$dialog_status" -ne 0 ] && error_exit "Interface selection cancelled. Mission aborted."
+    status=$?
+    [ "$status" -ne 0 ] && error_exit "Interface selection cancelled. Mission aborted."
     [ -z "$INTERFACES" ] && error_exit "Select at least one desktop environment or window manager."
 
     DESKTOP_ENV_SELECTIONS=()
     WINDOW_MGR_SELECTIONS=()
-    # Parse dialog checklist output from a single quoted string, e.g.:
-    # "gnome" "i3-wm"
-    # FPAT keeps each quoted tag as one field before stripping the quotes.
     mapfile -t INTERFACE_LIST < <(printf '%s\n' "$INTERFACES" | awk '
         BEGIN { FPAT = "\"[^\"]+\"" }
         {
@@ -337,12 +329,12 @@ select_software() {
         esac
     done
 
-    BUNDLES=$(dialog --title "Holocron Knowledge" --checklist "Synchronize Knowledge Bundles:" 15 60 3 \
+    BUNDLES=$(whiptail --title "Holocron Knowledge" --checklist "Synchronize Knowledge Bundles:" 15 60 3 \
         "coding" "[Jedi Sentinel] Dev Suite" ON \
         "gaming" "[Podracing] Gaming Bundle" OFF \
         "media" "[Archives] Media/Office" OFF 3>&1 1>&2 2>&3)
 
-    AUR_HELPER=$(dialog --title "Black Market Access" --menu "Choose an AUR helper (paru is faster):" 15 60 2 \
+    AUR_HELPER=$(whiptail --title "Black Market Access" --menu "Choose an AUR helper (paru is faster):" 15 60 2 \
         "paru" "Advanced Paru Helper" \
         "yay" "Traditional Yay Helper" 3>&1 1>&2 2>&3)
 }
@@ -469,7 +461,7 @@ configure_system() {
     echo "en_AU.UTF-8 UTF-8" >> /etc/locale.gen
     locale-gen
     echo "LANG=en_AU.UTF-8" > /etc/locale.conf
-    echo "kyberos" > /etc/hostname
+    echo "kyber" > /etc/hostname
     echo "root:$ROOT_PASSWORD" | chpasswd
     useradd -m -G wheel "$USERNAME"
     echo "$USERNAME:$USER_PASSWORD" | chpasswd
@@ -477,7 +469,7 @@ configure_system() {
 
     # Git Config Helper
     sudo -u $USERNAME git config --global user.name "$USERNAME"
-    sudo -u $USERNAME git config --global user.email "$USERNAME@kyberos.local"
+    sudo -u $USERNAME git config --global user.email "$USERNAME@kyber.local"
 EOF
 }
 
@@ -705,14 +697,14 @@ main() {
     clear
     # ASCII Art Welcome
     echo -e "\e[36m"
-    cat <<'EOF'
+    print_centered_block <<'EOF'
     __   __             _
     \ \ / /  _   _     | |__     ___   _ __
      \ V /  | | | |    | '_ \   / _ \ | '__|
       | |   | |_| |    | |_) | |  __/ | |
-      |_|    \__, |    |_.__/   \___| |_|
-             |___/
-           [ THE KYBER LINK v1.0 ]
+       |_|    \__, |    |_.__/   \___| |_|
+              |___/
+            [ THE KYBER LINK v1.0 ]
 EOF
     echo -e "\e[0m"
     sleep 2
@@ -728,7 +720,7 @@ EOF
     select_disk
 
     # Command Link selection
-    BOOTLOADER=$(dialog --title "Command Link" --menu "Select your command link:" 15 60 2 \
+    BOOTLOADER=$(whiptail --title "Command Link" --menu "Select your command link:" 15 60 2 \
         "systemd-boot" "Modern Imperial" \
         "grub" "Traditional Rebel" 3>&1 1>&2 2>&3)
     [ -z "$BOOTLOADER" ] && error_exit "No command link selected."
@@ -764,7 +756,7 @@ EOF
 
     clear
     echo -e "\e[33m"
-    cat <<'EOF'
+    print_centered_block <<'EOF'
       __________________________________________________
      |                                                  |
      |   MAY THE SOURCE BE WITH YOU. REBOOT TO IGNITE.  |
