@@ -3,6 +3,7 @@
 libnewt
 reflector
 wget
+arch-install-scripts
 
 # GUI & Staging Area
 xorg-server
@@ -26,3 +27,4 @@ hwinfo
 qt5-svg
 qt5-xmlpatterns
 qt5-webengine
+qt5-quickcontrols2
