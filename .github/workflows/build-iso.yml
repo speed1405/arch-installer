@@ -75,7 +75,7 @@ jobs:
               ''|\#*) continue ;;
             esac
 
-            if pacman -Si "$pkg" >/dev/null 2>&1; then
+            if pacman -Si "$pkg" >/dev/null 2>&1 || pacman -Sg "$pkg" >/dev/null 2>&1; then
               echo "$pkg" >> /tmp/kyber-profile/packages.x86_64
             else
               echo "::warning::Skipping unavailable package: $pkg"
