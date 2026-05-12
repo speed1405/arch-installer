@@ -255,7 +255,8 @@ compile_custom_kernel() {
     make nconfig
     echo 'Scanning Crystal (Energizing build)... This may take many cycles.'
     # Simple spinner simulation during make
-    make -j\$(nproc) &
+    # Explicitly building bzImage and modules
+    make -j\$(nproc) bzImage modules &
     PID=\$!
     chars=\"/-\\|\"
     while kill -0 \$PID 2>/dev/null; do
@@ -294,8 +295,10 @@ select_software() {
         "dwm" "Dynamic Minimalist (dwm)" OFF \
         "openbox" "Rebel Outpost (Openbox)" OFF 3>&1 1>&2 2>&3)
 
-    BUNDLES=$(dialog --title "Holocron Knowledge" --checklist "Synchronize Knowledge Bundles:" 15 60 1 \
-        "coding" "[Jedi Sentinel] Dev Suite" ON 3>&1 1>&2 2>&3)
+    BUNDLES=$(dialog --title "Holocron Knowledge" --checklist "Synchronize Knowledge Bundles:" 15 60 3 \
+        "coding" "[Jedi Sentinel] Dev Suite" ON \
+        "gaming" "[Podracing] Gaming Bundle" OFF \
+        "media" "[Archives] Media/Office" OFF 3>&1 1>&2 2>&3)
 
     AUR_HELPER=$(dialog --title "Black Market Access" --menu "Choose an AUR helper (paru is faster):" 15 60 2 \
         "paru" "Advanced Paru Helper" \
@@ -333,7 +336,7 @@ install_selected_software() {
 
     GPU_TYPE=$(lspci | grep -iE 'vga|3d' | grep -iE 'nvidia|amd|intel' -o | head -n 1 | tr '[:upper:]' '[:lower:]')
     case $GPU_TYPE in
-        nvidia) PKGS+=" nvidia nvidia-utils" ;;
+        nvidia) PKGS+=" nvidia-dkms nvidia-utils dkms" ;;
         amd)    PKGS+=" xf86-video-amdgpu mesa" ;;
         intel)  PKGS+=" xf86-video-intel mesa" ;;
     esac
@@ -383,6 +386,19 @@ install_jedi_sentinel() {
     log "Installing [Jedi Sentinel] Developer Bundle..."
     # Note: mono-msbuild is AUR, removed from here
     PKGS="gcc cmake dotnet-sdk docker github-cli discord neofetch"
+    arch-chroot /mnt pacman -S $PKGS --noconfirm
+}
+
+install_gaming_bundle() {
+    log "Installing [Podracing] Gaming Bundle..."
+    PKGS="steam lutris gamemode"
+    # Multilib was already enabled in install_base if user chose YES
+    arch-chroot /mnt pacman -S $PKGS --noconfirm
+}
+
+install_media_bundle() {
+    log "Installing [Archives] Media/Office Bundle..."
+    PKGS="vlc gst-libav libreoffice-fresh"
     arch-chroot /mnt pacman -S $PKGS --noconfirm
 }
 
@@ -687,6 +703,12 @@ EOF
 
     if [[ $BUNDLES == *"coding"* ]]; then
         install_jedi_sentinel
+    fi
+    if [[ $BUNDLES == *"gaming"* ]]; then
+        install_gaming_bundle
+    fi
+    if [[ $BUNDLES == *"media"* ]]; then
+        install_media_bundle
     fi
 
     install_aur_helper
