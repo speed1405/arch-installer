@@ -6,14 +6,12 @@ wget
 arch-install-scripts
 
 # GUI & Staging Area
-xorg-server
-xorg-xinit
+xorg
 xfce4
 xfce4-goodies
 kitty
 python-pyqt5
 feh
-xorg-xsetroot
 
 # Calamares and dependencies
 kpmcore
