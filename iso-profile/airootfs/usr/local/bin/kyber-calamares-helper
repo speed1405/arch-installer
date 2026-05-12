@@ -2,57 +2,219 @@
 import sys
 import os
 import json
+import subprocess
+from pathlib import Path
 
 # Read settings from launcher
 settings = {
     "force_path": "jedi",
+    "kernel": "linux",
+    "desktops": [],
+    "window_managers": [],
     "bundle_coding": False,
     "bundle_gaming": False,
     "bundle_media": False,
     "bleed_crystal": False,
-    "optimize_mirrors": True
+    "optimize_mirrors": True,
+    "enable_multilib": False,
+    "aur_helper": "paru"
 }
 
 if os.path.exists("/tmp/kyber_settings.json"):
     try:
         with open("/tmp/kyber_settings.json", "r") as f:
             settings.update(json.load(f))
-    except:
+    except Exception:
         pass
+
+if settings.get("force_path") not in {"jedi", "sith"}:
+    settings["force_path"] = "jedi"
 
 # Detect target root
 target_root = ""
+candidates = []
 for d in os.listdir("/tmp"):
-    if d.startswith("calamares-root-"):
-        target_root = os.path.join("/tmp", d)
-        break
+    full_path = os.path.join("/tmp", d)
+    if d.startswith("calamares-root-") and os.path.isdir(full_path):
+        candidates.append(full_path)
+if candidates:
+    target_root = max(candidates, key=lambda p: os.path.getmtime(p))
 
 if not target_root:
     print("Error: Could not find Calamares target root.")
     sys.exit(1)
+
+
+def run(cmd):
+    print("+", " ".join(cmd))
+    subprocess.run(cmd, check=False)
+
+
+def arch_chroot(*cmd):
+    run(["arch-chroot", target_root, *cmd])
+
+
+def enable_multilib():
+    pacman_conf = os.path.join(target_root, "etc/pacman.conf")
+    if not os.path.exists(pacman_conf):
+        return
+    run(["sed", "-i", "/\\[multilib\\]/,/Include/s/^#//", pacman_conf])
+    arch_chroot("pacman", "-Sy")
+
+
+def install_kernel():
+    allowed_kernels = {"linux", "linux-zen", "linux-lts"}
+    kernel = settings.get("kernel", "linux")
+    if kernel in allowed_kernels and kernel != "linux":
+        arch_chroot("pacman", "-S", kernel, "--noconfirm")
+
+
+def install_selected_software():
+    desktops = [d for d in settings.get("desktops", []) if d in {"plasma-desktop", "gnome", "mate"}]
+    wms = [w for w in settings.get("window_managers", []) if w in {"hyprland", "i3-wm", "dwm", "openbox"}]
+    if not desktops and not wms:
+        return
+
+    pkgs = ["xorg-server", "xorg-xinit"]
+    if "plasma-desktop" in desktops:
+        pkgs.extend(["plasma-desktop", "sddm"])
+    if "gnome" in desktops:
+        pkgs.extend(["gnome", "gnome-extra", "gdm"])
+    if "mate" in desktops:
+        pkgs.extend(["mate", "mate-extra", "lightdm", "lightdm-gtk-greeter"])
+    if "hyprland" in wms:
+        pkgs.extend(["hyprland", "waybar", "swaybg", "dunst", "kitty", "rofi"])
+    if "i3-wm" in wms:
+        pkgs.extend(["i3-wm", "polybar", "xorg-xsetroot", "dunst", "kitty", "rofi"])
+    if "openbox" in wms:
+        pkgs.extend(["openbox", "obconf", "lxappearance-obconf", "xorg-xsetroot", "kitty", "rofi"])
+
+    gpu_type = ""
+    try:
+        lspci_output = subprocess.check_output(["lspci"], text=True, stderr=subprocess.DEVNULL).lower()
+        if "nvidia" in lspci_output:
+            gpu_type = "nvidia"
+        elif "amd" in lspci_output:
+            gpu_type = "amd"
+        elif "intel" in lspci_output:
+            gpu_type = "intel"
+    except Exception:
+        pass
+
+    if gpu_type == "nvidia":
+        pkgs.extend(["nvidia-dkms", "nvidia-utils", "dkms"])
+    elif gpu_type == "amd":
+        pkgs.extend(["xf86-video-amdgpu", "mesa"])
+    elif gpu_type == "intel":
+        pkgs.extend(["xf86-video-intel", "mesa"])
+
+    arch_chroot("pacman", "-S", *pkgs, "--noconfirm")
+    arch_chroot("systemctl", "enable", "NetworkManager")
+
+    if "gnome" in desktops:
+        arch_chroot("systemctl", "enable", "gdm")
+    elif "plasma-desktop" in desktops:
+        arch_chroot("systemctl", "enable", "sddm")
+    elif "mate" in desktops:
+        arch_chroot("systemctl", "enable", "lightdm")
+
+    if "dwm" in wms:
+        force_path = settings.get("force_path", "jedi")
+        bg, fg, sel, selfg = ("#1A1B26", "#f3dfb4", "#00D4FF", "#1A1B26") if force_path == "jedi" else ("#0D0000", "#FF0000", "#FF0000", "#000000")
+        arch_chroot("pacman", "-S", "libx11", "libxft", "libxinerama", "--noconfirm")
+        run([
+            "arch-chroot",
+            target_root,
+            "bash",
+            "-lc",
+            (
+                "cd /tmp && rm -rf dwm && git clone https://git.suckless.org/dwm && cd dwm && "
+                f"sed -i 's/static const char col_gray1\\[\\] *= .*/static const char col_gray1[] = \"{bg}\";/' config.def.h && "
+                f"sed -i 's/static const char col_gray2\\[\\] *= .*/static const char col_gray2[] = \"{bg}\";/' config.def.h && "
+                f"sed -i 's/static const char col_gray3\\[\\] *= .*/static const char col_gray3[] = \"{fg}\";/' config.def.h && "
+                f"sed -i 's/static const char col_gray4\\[\\] *= .*/static const char col_gray4[] = \"{selfg}\";/' config.def.h && "
+                f"sed -i 's/static const char col_cyan\\[\\] *= .*/static const char col_cyan[] = \"{sel}\";/' config.def.h && "
+                "make install"
+            ),
+        ])
+
+
+def get_target_username():
+    passwd_path = Path(target_root) / "etc/passwd"
+    if not passwd_path.exists():
+        return ""
+    for line in passwd_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        parts = line.split(":")
+        if len(parts) < 7:
+            continue
+        username, _, uid, _, _, home, shell = parts[:7]
+        if uid.isdigit() and int(uid) >= 1000 and username not in {"nobody"} and shell not in {"/usr/bin/nologin", "/bin/false"}:
+            if os.path.isdir(os.path.join(target_root, home.lstrip("/"))):
+                return username
+    return ""
+
+
+def install_aur_helper():
+    helper = settings.get("aur_helper", "paru")
+    if helper not in {"paru", "yay"}:
+        helper = "paru"
+    username = get_target_username()
+    if not username:
+        print("Skipping AUR helper setup: no regular user found in target.")
+        return
+
+    sudoers_path = os.path.join(target_root, "etc/sudoers.d/aur-build")
+    with open(sudoers_path, "w", encoding="utf-8") as f:
+        f.write(f"{username} ALL=(ALL) NOPASSWD: ALL\n")
+    try:
+        run([
+            "arch-chroot",
+            target_root,
+            "bash",
+            "-lc",
+            (
+                f"cd /home/{username} && rm -rf {helper} && "
+                f"sudo -u {username} git clone https://aur.archlinux.org/{helper}.git && "
+                f"cd {helper} && sudo -u {username} makepkg -si --noconfirm"
+            ),
+        ])
+        if settings.get("bundle_coding", False):
+            arch_chroot("sudo", "-u", username, helper, "-S", "visual-studio-code-bin", "mono-msbuild", "--noconfirm")
+    finally:
+        if os.path.exists(sudoers_path):
+            os.remove(sudoers_path)
+
 
 print(f"Kyber OS Post-Installation Synchronization in {target_root}...")
 
 # Mirror Optimization
 if settings['optimize_mirrors']:
     print("Optimizing Holocron network uplinks...")
-    os.system(f"arch-chroot {target_root} reflector --latest 20 --protocol https --sort rate --save /etc/pacman.d/mirrorlist")
+    arch_chroot("reflector", "--latest", "20", "--protocol", "https", "--sort", "rate", "--save", "/etc/pacman.d/mirrorlist")
+
+if settings.get("enable_multilib", False):
+    enable_multilib()
+
+install_kernel()
 
 # Execute postinstall
-os.system(f"/usr/local/bin/kyber-postinstall --force-path {settings['force_path']} --target {target_root}")
+run(["/usr/local/bin/kyber-postinstall", "--force-path", settings["force_path"], "--target", target_root])
+install_selected_software()
 
 # Install Bundles
 if settings['bundle_coding']:
-    os.system(f"arch-chroot {target_root} pacman -S gcc cmake dotnet-sdk docker github-cli discord neofetch --noconfirm")
+    arch_chroot("pacman", "-S", "gcc", "cmake", "dotnet-sdk", "docker", "github-cli", "discord", "neofetch", "--noconfirm")
 
 if settings['bundle_gaming']:
-    os.system(f"arch-chroot {target_root} pacman -S steam lutris gamemode --noconfirm")
+    arch_chroot("pacman", "-S", "steam", "lutris", "gamemode", "--noconfirm")
 
 if settings['bundle_media']:
-    os.system(f"arch-chroot {target_root} pacman -S vlc gst-libav libreoffice-fresh --noconfirm")
+    arch_chroot("pacman", "-S", "vlc", "gst-libav", "libreoffice-fresh", "--noconfirm")
+
+install_aur_helper()
 
 # Bleed the Crystal
 if settings['bleed_crystal']:
-    os.system(f"/usr/local/bin/kyber-bleed-crystal --target {target_root}")
+    run(["/usr/local/bin/kyber-bleed-crystal", "--target", target_root])
 
 print("Synchronization Complete.")

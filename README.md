@@ -5,7 +5,7 @@ A modular Arch Linux installation script (Kyber OS) with a Star Wars-themed TUI 
 ## Features
 
 - **Initialization Sector Selector:** A new graphical interface on startup allowing you to choose between the **Graphical (Calamares)** or **Terminal (Kyber Link)** installation protocols.
-- **Graphical Holocron (Calamares):** A fully themed graphical installer with Star Wars aesthetic, custom side selection (Jedi/Sith), and knowledge bundle synchronization.
+- **Graphical Holocron (Calamares):** A fully themed graphical installer with Star Wars aesthetic plus Kyber custom options for side selection, kernels, desktop/window manager packages, AUR helper choice, multilib, and knowledge bundles.
 - **Droid Initialization Terminal:** A custom `whiptail` TUI with Star Wars terminology and a vintage color palette.
 - **Plotting Hyperspace Coordinates:** Automated and manual partitioning modes for beginners and advanced users.
 - **Bleeding the Crystal:** Advanced option to compile a custom kernel from source.
