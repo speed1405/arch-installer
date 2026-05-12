@@ -23,7 +23,9 @@ Head to the [Releases page](../../releases) and download the latest `kyber-os-*.
 
 1. Go to **Actions → Build Kyber OS ISO** in this repository.
 2. Click **Run workflow** (manual dispatch).
-3. Once the run completes, download the ISO from the **Artifacts** section of that run.
+3. Leave **Publish the built ISO to GitHub Releases** unchecked if you only want a workflow artifact.
+4. To publish from a manual run, enable publishing and enter a version tag such as `v1.0.0`.
+5. Once the run completes, download the ISO from the **Artifacts** section or the matching GitHub release.
 
 A release ISO is also published automatically whenever a version tag (e.g. `v1.0.0`) is pushed.
 
