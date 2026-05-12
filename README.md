@@ -4,7 +4,7 @@ A modular Arch Linux installation script (Kyber OS) with a Star Wars-themed TUI 
 
 ## Features
 
-- **Droid Initialization Terminal:** A custom `dialog` TUI with Star Wars terminology and a vintage color palette.
+- **Droid Initialization Terminal:** A custom `whiptail` TUI with Star Wars terminology and a vintage color palette.
 - **Plotting Hyperspace Coordinates:** Automated and manual partitioning modes for beginners and advanced users.
 - **Bleeding the Crystal:** Advanced option to compile a custom kernel from source.
 - **Jedi Sentinel Bundle:** A pre-configured developer suite including Git, CMake, .NET, Docker, and VS Code.
@@ -34,7 +34,7 @@ A release ISO is also published automatically whenever a version tag (e.g. `v1.0
 | Step | Detail |
 |------|--------|
 | Base profile | Arch's official `releng` profile (ships with `archiso`) |
-| Extra packages | `dialog`, `reflector`, `wget` added on top of releng defaults |
+| Extra packages | `whiptail`, `reflector`, `wget` added on top of releng defaults |
 | Installer | `install.sh` is placed at `/root/install.sh` (executable) inside the live environment |
 | Boot message | `/etc/motd` and a `profile.d` hook remind you to run the installer on login |
 
