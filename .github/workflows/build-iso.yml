@@ -39,7 +39,7 @@ jobs:
           pacman-key --populate archlinux
 
       - name: Install archiso
-        run: pacman -Syu --noconfirm archiso
+        run: pacman -Syu --noconfirm archiso grub
 
       - name: Prepare Kyber OS profile
         run: |
@@ -52,6 +52,12 @@ jobs:
           sed -i 's|^iso_publisher=.*|iso_publisher="Kyber OS"|'                  /tmp/kyber-profile/profiledef.sh
           sed -i 's|^iso_application=.*|iso_application="Kyber OS Live/Install Medium"|' \
                                                                                    /tmp/kyber-profile/profiledef.sh
+
+          # ── Switch UEFI bootloader to GRUB for VirtualBox compatibility ────
+          # systemd-boot can fail with "CPU not supported" in VirtualBox; GRUB
+          # provides wider EFI compatibility and the releng grub.cfg no longer
+          # contains a cpuid long-mode check.
+          sed -i "s|'uefi.systemd-boot'|'uefi.grub'|" /tmp/kyber-profile/profiledef.sh
 
           # ── Append extra packages ────────────────────────────────────
           cat iso-profile/extra-packages.x86_64 >> /tmp/kyber-profile/packages.x86_64
