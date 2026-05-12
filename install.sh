@@ -7,7 +7,7 @@ set -e
 
 # --- Variables & Configuration ---
 LOG_FILE="/tmp/install.log"
-exec > >(tee -a "$LOG_FILE") 2>&1
+exec 9>>"$LOG_FILE"
 
 # Custom DIALOGRC for the aesthetic
 export DIALOGRC="/tmp/.kyber_dialogrc"
@@ -50,7 +50,10 @@ error_exit() {
 }
 
 log() {
-    echo "$(date +'%Y-%m-%d %H:%M:%S') - [TERMINAL] $1"
+    local message
+    message="$(date +'%Y-%m-%d %H:%M:%S') - [TERMINAL] $1"
+    echo "$message"
+    echo "$message" >&9
 }
 
 msg() {
