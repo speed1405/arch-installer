@@ -41,3 +41,24 @@ fallback_image="/boot/initramfs-$CUSTOM_KNAME-fallback.img"
 EOT
 mkinitcpio -p custom
 EOF
+
+# Update Bootloader
+if [ -f "$TARGET_ROOT/boot/grub/grub.cfg" ]; then
+    echo "Updating GRUB configuration..."
+    arch-chroot "$TARGET_ROOT" grub-mkconfig -o /boot/grub/grub.cfg
+fi
+
+if [ -d "$TARGET_ROOT/boot/loader/entries" ]; then
+    echo "Updating systemd-boot configuration..."
+    UCODE=$(ls "$TARGET_ROOT/boot" | grep -E "(intel|amd)-ucode.img" | head -n 1)
+    UCODE_LINE=""
+    [ -n "$UCODE" ] && UCODE_LINE="initrd  /$UCODE"
+
+    cat <<EOF > "$TARGET_ROOT/boot/loader/entries/kyber-custom.conf"
+title   Kyber OS (Custom Crystal: $CUSTOM_KNAME)
+linux   /vmlinuz-$CUSTOM_KNAME
+$UCODE_LINE
+initrd  /initramfs-$CUSTOM_KNAME.img
+options root=PARTUUID=$(blkid -s PARTUUID -o value $(findmnt -no SOURCE "$TARGET_ROOT")) rw
+EOF
+fi

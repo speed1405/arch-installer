@@ -4,6 +4,8 @@ A modular Arch Linux installation script (Kyber OS) with a Star Wars-themed TUI 
 
 ## Features
 
+- **Initialization Sector Selector:** A new graphical interface on startup allowing you to choose between the **Graphical (Calamares)** or **Terminal (Kyber Link)** installation protocols.
+- **Graphical Holocron (Calamares):** A fully themed graphical installer with Star Wars aesthetic, custom side selection (Jedi/Sith), and knowledge bundle synchronization.
 - **Droid Initialization Terminal:** A custom `whiptail` TUI with Star Wars terminology and a vintage color palette.
 - **Plotting Hyperspace Coordinates:** Automated and manual partitioning modes for beginners and advanced users.
 - **Bleeding the Crystal:** Advanced option to compile a custom kernel from source.
@@ -65,13 +67,17 @@ sudo dd bs=4M if="$ISO" of=/dev/sdX status=progress oflag=sync
 
 ## Usage
 
-Boot the Kyber OS ISO, then at the root prompt run:
+1. **Boot the Kyber OS ISO.**
+2. **Select your Protocol:** Upon reaching the desktop, a selector will appear.
+   - **Graphical Installer (Calamares):** Recommended for most recruits. Includes a visual guide to choosing your side and software bundles.
+   - **Terminal Installer (The Kyber Link):** The classic, low-level initialization protocol.
+3. **Initialize:** Follow the on-screen instructions (Graphical or Terminal) to plot your coordinates and synchronize your holocron.
 
+### Manual Terminal Trigger
+If you need to trigger the terminal installer manually from a shell:
 ```bash
 /root/install.sh
 ```
-
-The installer's TUI will guide you through disk partitioning, kernel selection, desktop environment, and more.
 
 Alternatively, run the script directly from a stock Arch live environment:
 
