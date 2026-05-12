@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import os
+import shutil
 import subprocess
 import json
 from PyQt5.QtWidgets import (QApplication, QWidget, QPushButton, QVBoxLayout,
@@ -94,6 +95,10 @@ class KyberLauncher(QWidget):
             QPushButton:hover { background-color: #f3dfb4; }
         """)
         self.btn_calamares.clicked.connect(self.launch_calamares)
+        if shutil.which("calamares") is None:
+            self.btn_calamares.setEnabled(False)
+            self.btn_calamares.setText("Graphical Installer\n(Not available in this ISO)")
+            self.btn_calamares.setToolTip("Calamares is not installed in this build.")
 
         self.btn_terminal = QPushButton("Terminal Installer\n(Kyber Link)")
         self.btn_terminal.setFixedSize(300, 80)

@@ -59,8 +59,19 @@ jobs:
           # contains a cpuid long-mode check.
           sed -i "s|'uefi.systemd-boot'|'uefi.grub'|" /tmp/kyber-profile/profiledef.sh
 
-          # ── Append extra packages ────────────────────────────────────
-          cat iso-profile/extra-packages.x86_64 >> /tmp/kyber-profile/packages.x86_64
+          # ── Append extra packages (skip unavailable ones) ────────────
+          while IFS= read -r pkg; do
+            # Skip comments and blank lines
+            case "$pkg" in
+              ''|#*) continue ;;
+            esac
+
+            if pacman -Si "$pkg" >/dev/null 2>&1; then
+              echo "$pkg" >> /tmp/kyber-profile/packages.x86_64
+            else
+              echo "::warning::Skipping unavailable package: $pkg"
+            fi
+          done < iso-profile/extra-packages.x86_64
 
           # ── Deploy custom airootfs overlay files ─────────────────────
           mkdir -p /tmp/kyber-profile/airootfs/etc/profile.d
