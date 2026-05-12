@@ -38,8 +38,14 @@ jobs:
           pacman-key --init
           pacman-key --populate archlinux
 
-      - name: Install archiso
-        run: pacman -Syu --noconfirm archiso grub
+      - name: Install archiso and AUR build tools
+        run: |
+          # Enable multilib in the container so lib32 packages can be installed
+          sed -i '/^#\[multilib\]/,/^#Include/{s/^#//}' /etc/pacman.conf
+          pacman -Syu --noconfirm archiso grub base-devel git sudo
+          # Create an unprivileged user for makepkg (AUR builds must not run as root)
+          useradd -m aurbuilder
+          echo "aurbuilder ALL=(ALL) NOPASSWD: /usr/bin/pacman" >> /etc/sudoers
 
       - name: Prepare Kyber OS profile
         run: |
@@ -59,13 +65,27 @@ jobs:
           # contains a cpuid long-mode check.
           sed -i "s|'uefi.systemd-boot'|'uefi.grub'|" /tmp/kyber-profile/profiledef.sh
 
-          # ── Append extra packages ────────────────────────────────────
-          cat iso-profile/extra-packages.x86_64 >> /tmp/kyber-profile/packages.x86_64
+          # ── Enable multilib in profile pacman.conf ───────────────────
+          sed -i '/^#\[multilib\]/,/^#Include/{s/^#//}' /tmp/kyber-profile/pacman.conf
+
+          # ── Append extra packages (skip unavailable ones) ────────────
+          while IFS= read -r pkg; do
+            # Skip comments and blank lines
+            case "$pkg" in
+              ''|\#*) continue ;;
+            esac
+
+            if pacman -Si "$pkg" >/dev/null 2>&1; then
+              echo "$pkg" >> /tmp/kyber-profile/packages.x86_64
+            else
+              echo "::warning::Skipping unavailable package: $pkg"
+            fi
+          done < iso-profile/extra-packages.x86_64
 
           # ── Deploy custom airootfs overlay files ─────────────────────
-          # Copy the entire airootfs overlay from the repo to the profile
-          # Using '.' instead of '*' to include hidden files (like .xinitrc)
-          cp -r iso-profile/airootfs/. /tmp/kyber-profile/airootfs/
+          # Copy the entire airootfs overlay from the repo to the profile.
+          # Using '.' instead of '*' includes hidden files (like .xinitrc).
+          cp -a iso-profile/airootfs/. /tmp/kyber-profile/airootfs/
           chmod 755 /tmp/kyber-profile/airootfs/etc/profile.d/kyber-welcome.sh
           chmod 755 /tmp/kyber-profile/airootfs/usr/local/bin/*
 
@@ -73,6 +93,42 @@ jobs:
           mkdir -p /tmp/kyber-profile/airootfs/root
           cp install.sh /tmp/kyber-profile/airootfs/root/install.sh
           chmod 755 /tmp/kyber-profile/airootfs/root/install.sh
+
+      - name: Build AUR packages
+        run: |
+          mkdir -p /tmp/aur-repo
+
+          while IFS= read -r pkg; do
+            case "$pkg" in ''|\#*) continue ;; esac
+
+            # Clone PKGBUILD from AUR
+            if ! sudo -u aurbuilder git clone "https://aur.archlinux.org/${pkg}.git" "/tmp/aur-build-${pkg}" 2>/dev/null; then
+              echo "::warning::Skipping AUR package not found: $pkg"
+              continue
+            fi
+
+            # Build the package and install any declared dependencies
+            if sudo -u aurbuilder bash -c "cd /tmp/aur-build-${pkg} && makepkg -s --noconfirm --noprogressbar"; then
+              find "/tmp/aur-build-${pkg}" -name '*.pkg.tar.*' -exec cp {} /tmp/aur-repo/ \;
+            else
+              echo "::warning::Failed to build AUR package: $pkg"
+            fi
+          done < iso-profile/aur-packages.x86_64
+
+          # Wire up the local repo only when package files are present
+          mapfile -t pkg_files < <(find /tmp/aur-repo -name '*.pkg.tar.*' | sort)
+          if [ "${#pkg_files[@]}" -gt 0 ]; then
+            repo-add /tmp/aur-repo/kyber-aur.db.tar.gz "${pkg_files[@]}"
+
+            # Prepend [kyber-aur] before [core] so it takes highest priority
+            sed -i '1s|^|[kyber-aur]\nSigLevel = Optional TrustAll\nServer = file:///tmp/aur-repo\n\n|' \
+              /tmp/kyber-profile/pacman.conf
+
+            # Extract the actual installed binary package names from the built files
+            for pkgfile in "${pkg_files[@]}"; do
+              pacman -Qp "$pkgfile" 2>/dev/null | awk '{print $1}'
+            done >> /tmp/kyber-profile/packages.x86_64
+          fi
 
       - name: Build ISO
         run: mkarchiso -v -w /tmp/archiso-work -o /tmp/out /tmp/kyber-profile

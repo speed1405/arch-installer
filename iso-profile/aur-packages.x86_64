@@ -1,0 +1,8 @@
+# AUR packages to include in the ISO
+# Add one package base-name per line (must match the AUR git repo name exactly)
+# Lines starting with # are ignored, as are blank lines
+# Example:
+#   yay
+#   paru
+calamares
+ckbcomp
