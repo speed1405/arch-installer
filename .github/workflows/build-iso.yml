@@ -94,8 +94,10 @@ jobs:
     steps:
       - name: Validate manual release settings
         if: github.event_name == 'workflow_dispatch'
+        env:
+          MANUAL_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
-          if [ -z "${{ inputs.release_tag }}" ]; then
+          if [ -z "$MANUAL_RELEASE_TAG" ]; then
             echo "::error::Set release_tag when publish_release is enabled."
             exit 1
           fi
@@ -103,8 +105,9 @@ jobs:
           python - <<'PY'
           import re
           import sys
+          import os
 
-          tag = "${{ inputs.release_tag }}"
+          tag = os.environ["MANUAL_RELEASE_TAG"]
           semver = re.compile(
               r"^v"
               r"(0|[1-9]\d*)\."
