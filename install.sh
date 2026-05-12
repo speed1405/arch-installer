@@ -24,7 +24,8 @@ checkbox=white,blue
 actcheckbox=yellow,cyan
 entry=white,blue
 compactbutton=yellow,blue
-actlistbox=black,cyan
+listbox=white,blue
+actlistbox=white,cyan
 '
 
 # --- Helper Functions ---
