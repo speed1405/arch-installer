@@ -89,6 +89,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
+      # Tag pushes publish the pushed tag; manual runs use the validated release_tag input.
       RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.release_tag }}
 
     steps:
@@ -98,7 +99,7 @@ jobs:
           MANUAL_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           if [ -z "$MANUAL_RELEASE_TAG" ]; then
-            echo "::error::release_tag input is required when publish_release is enabled. Please provide a valid semver tag (e.g. v1.0.0)."
+            echo "::error::release_tag input is required when publish_release is enabled. Please provide a valid semver tag (e.g. v1.0.0) or disable publishing."
             exit 1
           fi
 
@@ -136,18 +137,17 @@ jobs:
         run: |
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" ./out/*.iso --clobber
-            exit 0
+          else
+            gh release create "$RELEASE_TAG" \
+              --title "Kyber OS $RELEASE_TAG" \
+              --notes "## Kyber OS Live ISO – $RELEASE_TAG
+
+            Flash this ISO to a USB drive (e.g. with \`dd\` or Ventoy), boot from it, then run:
+
+            \`\`\`bash
+            /root/install.sh
+            \`\`\`
+
+            May the Source be with you." \
+              ./out/*.iso
           fi
-
-          gh release create "$RELEASE_TAG" \
-            --title "Kyber OS $RELEASE_TAG" \
-            --notes "## Kyber OS Live ISO – $RELEASE_TAG
-
-          Flash this ISO to a USB drive (e.g. with \`dd\` or Ventoy), boot from it, then run:
-
-          \`\`\`bash
-          /root/install.sh
-          \`\`\`
-
-          May the Source be with you." \
-            ./out/*.iso
