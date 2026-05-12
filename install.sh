@@ -8,6 +8,7 @@ set -e
 # --- Variables & Configuration ---
 LOG_FILE="/tmp/install.log"
 exec 9>>"$LOG_FILE"
+trap 'exec 9>&-' EXIT
 
 # Custom DIALOGRC for the aesthetic
 export DIALOGRC="/tmp/.kyber_dialogrc"
@@ -62,6 +63,17 @@ msg() {
 
 confirm() {
     dialog --title "$1" --yesno "$2" 10 60
+}
+
+has_selection() {
+    # Returns 0 when the first argument is present in the remaining arguments.
+    local needle="$1"
+    shift
+    local item
+    for item in "$@"; do
+        [ "$item" = "$needle" ] && return 0
+    done
+    return 1
 }
 
 # --- System Pre-flight Check ---
@@ -287,16 +299,43 @@ EOF
 }
 
 select_software() {
-    DESKTOP_ENV=$(dialog --title "Holocron Interfaces" --checklist "Select Desktop Environments (Interfaces):" 15 60 3 \
-        "plasma-desktop" "Modern Jedi Interface (Plasma)" OFF \
-        "gnome" "Clean Imperial Interface (GNOME)" OFF \
-        "mate" "Retro Rebel Interface (MATE)" OFF 3>&1 1>&2 2>&3)
-
-    WINDOW_MGR=$(dialog --title "Combat Interfaces" --checklist "Select Window Managers (Combat):" 15 60 4 \
+    INTERFACES=$(dialog --title "Holocron Interfaces" --checklist "Select Desktop Environments and Window Managers:" 18 70 7 \
+        "plasma-desktop" "Desktop Environment: Modern Jedi Interface (Plasma)" OFF \
+        "gnome" "Desktop Environment: Clean Imperial Interface (GNOME)" OFF \
+        "mate" "Desktop Environment: Retro Rebel Interface (MATE)" OFF \
         "hyprland" "Fast Maneuverability (Hyprland)" OFF \
         "i3-wm" "Tactical Grid (i3-wm)" OFF \
         "dwm" "Dynamic Minimalist (dwm)" OFF \
         "openbox" "Rebel Outpost (Openbox)" OFF 3>&1 1>&2 2>&3)
+    dialog_status=$?
+    [ "$dialog_status" -ne 0 ] && error_exit "Interface selection cancelled. Mission aborted."
+    [ -z "$INTERFACES" ] && error_exit "Select at least one desktop environment or window manager."
+
+    DESKTOP_ENV_SELECTIONS=()
+    WINDOW_MGR_SELECTIONS=()
+    # Parse dialog checklist output from a single quoted string, e.g.:
+    # "gnome" "i3-wm"
+    # FPAT keeps each quoted tag as one field before stripping the quotes.
+    mapfile -t INTERFACE_LIST < <(printf '%s\n' "$INTERFACES" | awk '
+        BEGIN { FPAT = "\"[^\"]+\"" }
+        {
+            for (i = 1; i <= NF; i++) {
+                gsub(/^"|"$/, "", $i)
+                print $i
+            }
+        }
+    ')
+    [ ${#INTERFACE_LIST[@]} -eq 0 ] && error_exit "Unable to parse the selected interfaces."
+    for interface in "${INTERFACE_LIST[@]}"; do
+        case "$interface" in
+            plasma-desktop|gnome|mate)
+                DESKTOP_ENV_SELECTIONS+=("$interface")
+                ;;
+            hyprland|i3-wm|dwm|openbox)
+                WINDOW_MGR_SELECTIONS+=("$interface")
+                ;;
+        esac
+    done
 
     BUNDLES=$(dialog --title "Holocron Knowledge" --checklist "Synchronize Knowledge Bundles:" 15 60 3 \
         "coding" "[Jedi Sentinel] Dev Suite" ON \
@@ -330,12 +369,12 @@ install_base() {
 install_selected_software() {
     log "Synchronizing selected interfaces..."
     PKGS="xorg-server xorg-xinit"
-    [[ $DESKTOP_ENV == *"plasma-desktop"* ]] && PKGS+=" plasma-desktop sddm"
-    [[ $DESKTOP_ENV == *"gnome"* ]] && PKGS+=" gnome gnome-extra gdm"
-    [[ $DESKTOP_ENV == *"mate"* ]] && PKGS+=" mate mate-extra lightdm lightdm-gtk-greeter"
-    [[ $WINDOW_MGR == *"hyprland"* ]] && PKGS+=" hyprland waybar swaybg dunst kitty rofi"
-    [[ $WINDOW_MGR == *"i3-wm"* ]] && PKGS+=" i3-wm polybar xorg-xsetroot dunst kitty rofi"
-    [[ $WINDOW_MGR == *"openbox"* ]] && PKGS+=" openbox obconf lxappearance-obconf xorg-xsetroot kitty rofi"
+    has_selection "plasma-desktop" "${DESKTOP_ENV_SELECTIONS[@]}" && PKGS+=" plasma-desktop sddm"
+    has_selection "gnome" "${DESKTOP_ENV_SELECTIONS[@]}" && PKGS+=" gnome gnome-extra gdm"
+    has_selection "mate" "${DESKTOP_ENV_SELECTIONS[@]}" && PKGS+=" mate mate-extra lightdm lightdm-gtk-greeter"
+    has_selection "hyprland" "${WINDOW_MGR_SELECTIONS[@]}" && PKGS+=" hyprland waybar swaybg dunst kitty rofi"
+    has_selection "i3-wm" "${WINDOW_MGR_SELECTIONS[@]}" && PKGS+=" i3-wm polybar xorg-xsetroot dunst kitty rofi"
+    has_selection "openbox" "${WINDOW_MGR_SELECTIONS[@]}" && PKGS+=" openbox obconf lxappearance-obconf xorg-xsetroot kitty rofi"
 
     GPU_TYPE=$(lspci | grep -iE 'vga|3d' | grep -iE 'nvidia|amd|intel' -o | head -n 1 | tr '[:upper:]' '[:lower:]')
     case $GPU_TYPE in
@@ -348,7 +387,7 @@ install_selected_software() {
     arch-chroot /mnt systemctl enable NetworkManager
 
     # DWM Installation and Theming
-    if [[ $WINDOW_MGR == *"dwm"* ]]; then
+    if has_selection "dwm" "${WINDOW_MGR_SELECTIONS[@]}"; then
         log "Acquiring DWM dependencies..."
         arch-chroot /mnt pacman -S libx11 libxft libxinerama --noconfirm
 
@@ -376,11 +415,11 @@ EOF
     fi
 
     # Enable Display Manager
-    if [[ $DESKTOP_ENV == *"gnome"* ]]; then
+    if has_selection "gnome" "${DESKTOP_ENV_SELECTIONS[@]}"; then
         arch-chroot /mnt systemctl enable gdm
-    elif [[ $DESKTOP_ENV == *"plasma-desktop"* ]]; then
+    elif has_selection "plasma-desktop" "${DESKTOP_ENV_SELECTIONS[@]}"; then
         arch-chroot /mnt systemctl enable sddm
-    elif [[ $DESKTOP_ENV == *"mate"* ]]; then
+    elif has_selection "mate" "${DESKTOP_ENV_SELECTIONS[@]}"; then
         arch-chroot /mnt systemctl enable lightdm
     fi
 }
@@ -448,21 +487,24 @@ deploy_dotfiles() {
 
     # xinitrc for dwm/i3 (Take the first one selected as primary)
     # Map package names to binary names
-    RAW_WM=$(echo $WINDOW_MGR | awk '{print $1}' | tr -d '"')
-    case $RAW_WM in
-        hyprland) BIN_WM="Hyprland" ;;
-        i3-wm)    BIN_WM="i3"       ;;
-        dwm)      BIN_WM="dwm"      ;;
-        openbox)  BIN_WM="openbox-session" ;;
-        *)        BIN_WM="$RAW_WM"  ;;
-    esac
+    RAW_WM="${WINDOW_MGR_SELECTIONS[0]}"
+    if [ -n "$RAW_WM" ]; then
+        case $RAW_WM in
+            hyprland) BIN_WM="Hyprland" ;;
+            i3-wm)    BIN_WM="i3"       ;;
+            dwm)      BIN_WM="dwm"      ;;
+            openbox)  BIN_WM="openbox-session" ;;
+            *)        BIN_WM="$RAW_WM"  ;;
+        esac
+        log "Primary window manager for xinitrc set to: $BIN_WM"
 
-    cat <<EOF > /mnt/etc/skel/.xinitrc
+        cat <<EOF > /mnt/etc/skel/.xinitrc
 exec $BIN_WM
 EOF
+    fi
 
     # DWM Desktop Entry for Display Managers
-    if [[ $WINDOW_MGR == *"dwm"* ]]; then
+    if has_selection "dwm" "${WINDOW_MGR_SELECTIONS[@]}"; then
         mkdir -p /mnt/usr/share/xsessions
         cat <<EOF > /mnt/usr/share/xsessions/dwm.desktop
 [Desktop Entry]
