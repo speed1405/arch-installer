@@ -1,2 +1,2 @@
 xsetroot -solid "#1A1B26" &
-/usr/local/bin/kyber-launcher &
+python3 /usr/local/bin/kyber-launcher &

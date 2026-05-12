@@ -50,6 +50,7 @@ sudo pacman -S archiso
 cp -r /usr/share/archiso/configs/releng/ /tmp/kyber-profile
 cat iso-profile/extra-packages.x86_64 >> /tmp/kyber-profile/packages.x86_64
 cp -a iso-profile/airootfs/. /tmp/kyber-profile/airootfs/
+chmod 755 /tmp/kyber-profile/airootfs/usr/local/bin/*
 cp install.sh /tmp/kyber-profile/airootfs/root/install.sh
 chmod 755 /tmp/kyber-profile/airootfs/root/install.sh
 
