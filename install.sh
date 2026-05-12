@@ -229,8 +229,8 @@ compile_custom_kernel() {
     log "Bleeding the Crystal (Custom Kernel Compilation)..."
 
     # Question-based tuning
-    CUSTOM_KNAME=$(whiptail --title "Crystal Naming" --inputbox "Enter a name for your custom crystal (kernel):" 10 60 "linux-kyber-os" 3>&1 1>&2 2>&3)
-    [ -z "$CUSTOM_KNAME" ] && CUSTOM_KNAME="linux-kyber-os"
+    CUSTOM_KNAME=$(whiptail --title "Crystal Naming" --inputbox "Enter a name for your custom crystal (kernel):" 10 60 "linux-kyber" 3>&1 1>&2 2>&3)
+    [ -z "$CUSTOM_KNAME" ] && CUSTOM_KNAME="linux-kyber"
 
     OPT_PERF=$(confirm "Kyber Tuning" "Optimize for maximum combat performance (O3 optimization)?" && echo "YES" || echo "NO")
     OPT_STRIP=$(confirm "Kyber Tuning" "Strip debugging runes to reduce crystal size?" && echo "YES" || echo "NO")
@@ -258,7 +258,7 @@ compile_custom_kernel() {
 
     # Inject Kyber OS identity into the kernel version
     echo \"Injecting Kyber OS identity...\"
-    sed -i \"s/^CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\\\"-kyber-os\\\"/\" .config || echo 'CONFIG_LOCALVERSION=\"-kyber-os\"' >> .config
+    sed -i \"s/^CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\\\"-kyber\\\"/\" .config || echo 'CONFIG_LOCALVERSION=\"-kyber\"' >> .config
 
     echo 'Calibrating Crystal (nconfig)...'
     make nconfig
@@ -452,7 +452,7 @@ configure_system() {
     echo "en_AU.UTF-8 UTF-8" >> /etc/locale.gen
     locale-gen
     echo "LANG=en_AU.UTF-8" > /etc/locale.conf
-    echo "kyber-os" > /etc/hostname
+    echo "kyber" > /etc/hostname
     echo "root:$ROOT_PASSWORD" | chpasswd
     useradd -m -G wheel "$USERNAME"
     echo "$USERNAME:$USER_PASSWORD" | chpasswd
@@ -460,7 +460,7 @@ configure_system() {
 
     # Git Config Helper
     sudo -u $USERNAME git config --global user.name "$USERNAME"
-    sudo -u $USERNAME git config --global user.email "$USERNAME@kyber-os.local"
+    sudo -u $USERNAME git config --global user.email "$USERNAME@kyber.local"
 EOF
 }
 
