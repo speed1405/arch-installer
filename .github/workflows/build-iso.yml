@@ -83,13 +83,16 @@ jobs:
           done < iso-profile/extra-packages.x86_64
 
           # ── Deploy custom airootfs overlay files ─────────────────────
+          # Copy the entire airootfs overlay from the repo to the profile.
+          # Using '.' instead of '*' includes hidden files (like .xinitrc).
           cp -a iso-profile/airootfs/. /tmp/kyber-profile/airootfs/
           chmod 755 /tmp/kyber-profile/airootfs/etc/profile.d/kyber-welcome.sh
+          chmod 755 /tmp/kyber-profile/airootfs/usr/local/bin/*
 
           # ── Embed the installer ──────────────────────────────────────
           mkdir -p /tmp/kyber-profile/airootfs/root
           cp install.sh /tmp/kyber-profile/airootfs/root/install.sh
-          chmod 755  /tmp/kyber-profile/airootfs/root/install.sh
+          chmod 755 /tmp/kyber-profile/airootfs/root/install.sh
 
       - name: Build AUR packages
         run: |
