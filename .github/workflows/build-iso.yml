@@ -83,9 +83,7 @@ jobs:
           done < iso-profile/extra-packages.x86_64
 
           # ── Deploy custom airootfs overlay files ─────────────────────
-          mkdir -p /tmp/kyber-profile/airootfs/etc/profile.d
-          cp iso-profile/airootfs/etc/motd /tmp/kyber-profile/airootfs/etc/motd
-          cp iso-profile/airootfs/etc/profile.d/kyber-welcome.sh /tmp/kyber-profile/airootfs/etc/profile.d/kyber-welcome.sh
+          cp -a iso-profile/airootfs/. /tmp/kyber-profile/airootfs/
           chmod 755 /tmp/kyber-profile/airootfs/etc/profile.d/kyber-welcome.sh
 
           # ── Embed the installer ──────────────────────────────────────

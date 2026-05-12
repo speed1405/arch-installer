@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Kyber Launcher
+Comment=Launch Kyber installer selector
+Exec=/usr/local/bin/kyber-launcher
+Terminal=false
+OnlyShowIn=XFCE;
+X-GNOME-Autostart-enabled=true
