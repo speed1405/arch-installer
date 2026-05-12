@@ -7,6 +7,7 @@ set -e
 
 # --- Variables & Configuration ---
 LOG_FILE="/tmp/install.log"
+DEFAULT_CUSTOM_KNAME="linux-kyber"
 exec 9>>"$LOG_FILE"
 trap 'exec 9>&-' EXIT
 
@@ -229,9 +230,8 @@ compile_custom_kernel() {
     log "Bleeding the Crystal (Custom Kernel Compilation)..."
 
     # Question-based tuning
-    local default_custom_kname="linux-kyber"
-    CUSTOM_KNAME=$(whiptail --title "Crystal Naming" --inputbox "Enter a name for your custom crystal (kernel):" 10 60 "$default_custom_kname" 3>&1 1>&2 2>&3)
-    [ -z "$CUSTOM_KNAME" ] && CUSTOM_KNAME="$default_custom_kname"
+    CUSTOM_KNAME=$(whiptail --title "Crystal Naming" --inputbox "Enter a name for your custom crystal (kernel):" 10 60 "$DEFAULT_CUSTOM_KNAME" 3>&1 1>&2 2>&3)
+    [ -z "$CUSTOM_KNAME" ] && CUSTOM_KNAME="$DEFAULT_CUSTOM_KNAME"
 
     OPT_PERF=$(confirm "Kyber Tuning" "Optimize for maximum combat performance (O3 optimization)?" && echo "YES" || echo "NO")
     OPT_STRIP=$(confirm "Kyber Tuning" "Strip debugging runes to reduce crystal size?" && echo "YES" || echo "NO")
@@ -302,8 +302,8 @@ select_software() {
         "i3-wm" "Tactical Grid (i3-wm)" OFF \
         "dwm" "Dynamic Minimalist (dwm)" OFF \
         "openbox" "Rebel Outpost (Openbox)" OFF 3>&1 1>&2 2>&3)
-    whiptail_status=$?
-    [ "$whiptail_status" -ne 0 ] && error_exit "Interface selection cancelled. Mission aborted."
+    status=$?
+    [ "$status" -ne 0 ] && error_exit "Interface selection cancelled. Mission aborted."
     [ -z "$INTERFACES" ] && error_exit "Select at least one desktop environment or window manager."
 
     DESKTOP_ENV_SELECTIONS=()
