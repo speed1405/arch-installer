@@ -15,16 +15,13 @@ feh
 xorg-xsetroot
 
 # Calamares and dependencies
-calamares
 kpmcore
 yaml-cpp
 boost-libs
 parted
 gptfdisk
 squashfs-tools
-ckbcomp
 hwinfo
 qt5-svg
 qt5-xmlpatterns
-qt5-webengine
 qt5-quickcontrols2
