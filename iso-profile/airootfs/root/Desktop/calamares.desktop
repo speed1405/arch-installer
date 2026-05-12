@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Install Arch Linux
+GenericName=Graphical Installer
+Comment=Launch the Calamares graphical installer
+Exec=calamares
+Icon=calamares
+Terminal=false
+Categories=System;
