@@ -62,9 +62,8 @@ jobs:
           # ── Append extra packages (skip unavailable ones) ────────────
           while IFS= read -r pkg; do
             # Skip comments and blank lines
-            [ -z "$pkg" ] && continue
             case "$pkg" in
-              \#*) continue ;;
+              ''|\#*) continue ;;
             esac
 
             if pacman -Si "$pkg" >/dev/null 2>&1; then
