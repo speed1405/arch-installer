@@ -294,7 +294,7 @@ EOF
 }
 
 select_software() {
-    INTERFACES=$(whiptail --title "Holocron Interfaces" --separate-output --checklist "Select Desktop Environments and Window Managers:" 18 70 7 \
+    INTERFACES=$(whiptail --title "Holocron Interfaces" --checklist "Select Desktop Environments and Window Managers:" 18 70 7 \
         "plasma-desktop" "Desktop Environment: Modern Jedi Interface (Plasma)" OFF \
         "gnome" "Desktop Environment: Clean Imperial Interface (GNOME)" OFF \
         "mate" "Desktop Environment: Retro Rebel Interface (MATE)" OFF \
@@ -308,7 +308,15 @@ select_software() {
 
     DESKTOP_ENV_SELECTIONS=()
     WINDOW_MGR_SELECTIONS=()
-    mapfile -t INTERFACE_LIST < <(printf '%s\n' "$INTERFACES")
+    mapfile -t INTERFACE_LIST < <(printf '%s\n' "$INTERFACES" | awk '
+        BEGIN { FPAT = "\"[^\"]+\"" }
+        {
+            for (i = 1; i <= NF; i++) {
+                gsub(/^"|"$/, "", $i)
+                print $i
+            }
+        }
+    ')
     [ ${#INTERFACE_LIST[@]} -eq 0 ] && error_exit "Unable to parse the selected interfaces."
     for interface in "${INTERFACE_LIST[@]}"; do
         case "$interface" in
@@ -321,7 +329,7 @@ select_software() {
         esac
     done
 
-    BUNDLES=$(whiptail --title "Holocron Knowledge" --separate-output --checklist "Synchronize Knowledge Bundles:" 15 60 3 \
+    BUNDLES=$(whiptail --title "Holocron Knowledge" --checklist "Synchronize Knowledge Bundles:" 15 60 3 \
         "coding" "[Jedi Sentinel] Dev Suite" ON \
         "gaming" "[Podracing] Gaming Bundle" OFF \
         "media" "[Archives] Media/Office" OFF 3>&1 1>&2 2>&3)
