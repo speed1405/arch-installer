@@ -49,9 +49,7 @@ sudo pacman -S archiso
 # Copy releng base and apply our overlay
 cp -r /usr/share/archiso/configs/releng/ /tmp/kyber-profile
 cat iso-profile/extra-packages.x86_64 >> /tmp/kyber-profile/packages.x86_64
-cp iso-profile/airootfs/etc/motd /tmp/kyber-profile/airootfs/etc/motd
-cp iso-profile/airootfs/etc/profile.d/kyber-welcome.sh \
-   /tmp/kyber-profile/airootfs/etc/profile.d/
+cp -a iso-profile/airootfs/. /tmp/kyber-profile/airootfs/
 cp install.sh /tmp/kyber-profile/airootfs/root/install.sh
 chmod 755 /tmp/kyber-profile/airootfs/root/install.sh
 
