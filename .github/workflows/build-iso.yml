@@ -72,7 +72,7 @@ jobs:
           while IFS= read -r pkg; do
             # Skip comments and blank lines
             case "$pkg" in
-              ''|#*) continue ;;
+              ''|\#*) continue ;;
             esac
 
             if pacman -Si "$pkg" >/dev/null 2>&1; then
@@ -98,7 +98,7 @@ jobs:
           mkdir -p /tmp/aur-repo
 
           while IFS= read -r pkg; do
-            case "$pkg" in ''|#*) continue ;; esac
+            case "$pkg" in ''|\#*) continue ;; esac
 
             # Clone PKGBUILD from AUR
             if ! sudo -u aurbuilder git clone "https://aur.archlinux.org/${pkg}.git" "/tmp/aur-build-${pkg}" 2>/dev/null; then
