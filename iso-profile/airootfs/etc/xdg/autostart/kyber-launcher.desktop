@@ -6,4 +6,3 @@ Comment=Launch Kyber installer selector
 Exec=/usr/local/bin/kyber-launcher
 Terminal=false
 OnlyShowIn=XFCE;
-X-GNOME-Autostart-enabled=true
