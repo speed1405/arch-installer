@@ -1,0 +1,5 @@
+# Extra packages on top of the archiso releng defaults
+# needed by The Kyber Link install script
+dialog
+reflector
+wget

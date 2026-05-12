@@ -1,0 +1,104 @@
+name: Build Kyber OS ISO
+
+on:
+  # Trigger manually from the Actions tab
+  workflow_dispatch:
+  # Trigger automatically on version tags (e.g. v1.0.0)
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # ──────────────────────────────────────────────────────────
+  # 1. Build the ISO inside an Arch Linux container
+  # ──────────────────────────────────────────────────────────
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+      # mkarchiso needs loop devices, mounts and squashfs – privileged mode
+      # provides the required kernel capabilities on the Ubuntu host.
+      options: --privileged
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialise pacman keyring
+        run: |
+          pacman-key --init
+          pacman-key --populate archlinux
+
+      - name: Install archiso
+        run: pacman -Syu --noconfirm archiso
+
+      - name: Prepare Kyber OS profile
+        run: |
+          # Start from the official releng profile that ships with archiso
+          cp -r /usr/share/archiso/configs/releng/ /tmp/kyber-profile
+
+          # ── Patch identity fields in profiledef.sh ──────────────────
+          sed -i 's|^iso_name=.*|iso_name="kyber-os"|'                           /tmp/kyber-profile/profiledef.sh
+          sed -i 's|^iso_label=.*|iso_label="KYBER_OS_$(date +%Y%m)"|'           /tmp/kyber-profile/profiledef.sh
+          sed -i 's|^iso_publisher=.*|iso_publisher="Kyber OS"|'                  /tmp/kyber-profile/profiledef.sh
+          sed -i 's|^iso_application=.*|iso_application="Kyber OS Live/Install Medium"|' \
+                                                                                   /tmp/kyber-profile/profiledef.sh
+
+          # ── Append extra packages ────────────────────────────────────
+          cat iso-profile/extra-packages.x86_64 >> /tmp/kyber-profile/packages.x86_64
+
+          # ── Deploy custom airootfs overlay files ─────────────────────
+          mkdir -p /tmp/kyber-profile/airootfs/etc/profile.d
+          cp iso-profile/airootfs/etc/motd /tmp/kyber-profile/airootfs/etc/motd
+          cp iso-profile/airootfs/etc/profile.d/kyber-welcome.sh /tmp/kyber-profile/airootfs/etc/profile.d/kyber-welcome.sh
+          chmod 755 /tmp/kyber-profile/airootfs/etc/profile.d/kyber-welcome.sh
+
+          # ── Embed the installer ──────────────────────────────────────
+          mkdir -p /tmp/kyber-profile/airootfs/root
+          cp install.sh /tmp/kyber-profile/airootfs/root/install.sh
+          chmod 755  /tmp/kyber-profile/airootfs/root/install.sh
+
+      - name: Build ISO
+        run: mkarchiso -v -w /tmp/archiso-work -o /tmp/out /tmp/kyber-profile
+
+      - name: Upload ISO as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kyber-os-iso
+          path: /tmp/out/*.iso
+          retention-days: 7
+
+  # ──────────────────────────────────────────────────────────
+  # 2. Publish to GitHub Releases (tag pushes only)
+  # ──────────────────────────────────────────────────────────
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download ISO artifact
+        uses: actions/download-artifact@v4.1.3
+        with:
+          name: kyber-os-iso
+          path: ./out
+
+      - name: Create GitHub Release and attach ISO
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "Kyber OS ${{ github.ref_name }}" \
+            --notes "## Kyber OS Live ISO – ${{ github.ref_name }}
+
+          Flash this ISO to a USB drive (e.g. with \`dd\` or Ventoy), boot from it, then run:
+
+          \`\`\`bash
+          /root/install.sh
+          \`\`\`
+
+          May the Source be with you." \
+            ./out/*.iso
