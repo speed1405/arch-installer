@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 import sys
-import os
 import shutil
 import subprocess
 import json
 from PyQt5.QtWidgets import (QApplication, QWidget, QPushButton, QVBoxLayout,
                              QLabel, QHBoxLayout, QRadioButton, QCheckBox,
-                             QGroupBox, QFrame)
+                             QGroupBox, QComboBox)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QPalette, QColor
 
@@ -15,17 +14,22 @@ class KyberLauncher(QWidget):
         super().__init__()
         self.settings = {
             "force_path": "jedi",
+            "kernel": "linux",
+            "desktops": [],
+            "window_managers": [],
             "bundle_coding": False,
             "bundle_gaming": False,
             "bundle_media": False,
             "bleed_crystal": False,
-            "optimize_mirrors": True
+            "optimize_mirrors": True,
+            "enable_multilib": False,
+            "aur_helper": "paru"
         }
         self.initUI()
 
     def initUI(self):
         self.setWindowTitle('Kyber OS Initialization Sector')
-        self.setFixedSize(700, 650)
+        self.setFixedSize(760, 820)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
 
         palette = self.palette()
@@ -73,15 +77,54 @@ class KyberLauncher(QWidget):
         bundle_group.setLayout(bundle_layout)
         layout.addWidget(bundle_group)
 
+        # --- Interfaces ---
+        interface_group = QGroupBox("HOLOCRON INTERFACES")
+        interface_group.setStyleSheet("QGroupBox { color: #f3dfb4; border: 1px solid #7d812c; margin-top: 10px; }")
+        interface_layout = QVBoxLayout()
+
+        self.check_plasma = QCheckBox("Desktop Environment: Modern Jedi Interface (Plasma)")
+        self.check_gnome = QCheckBox("Desktop Environment: Clean Imperial Interface (GNOME)")
+        self.check_mate = QCheckBox("Desktop Environment: Retro Rebel Interface (MATE)")
+        self.check_hyprland = QCheckBox("Fast Maneuverability (Hyprland)")
+        self.check_i3 = QCheckBox("Tactical Grid (i3-wm)")
+        self.check_dwm = QCheckBox("Dynamic Minimalist (dwm)")
+        self.check_openbox = QCheckBox("Rebel Outpost (Openbox)")
+
+        interface_layout.addWidget(self.check_plasma)
+        interface_layout.addWidget(self.check_gnome)
+        interface_layout.addWidget(self.check_mate)
+        interface_layout.addWidget(self.check_hyprland)
+        interface_layout.addWidget(self.check_i3)
+        interface_layout.addWidget(self.check_dwm)
+        interface_layout.addWidget(self.check_openbox)
+        interface_group.setLayout(interface_layout)
+        layout.addWidget(interface_group)
+
         # --- Kernel & Optimization ---
-        kernel_group = QGroupBox("SYSTEM OPTIMIZATION")
+        kernel_group = QGroupBox("SYSTEM CORE")
         kernel_group.setStyleSheet("QGroupBox { color: #f3dfb4; border: 1px solid #7d812c; margin-top: 10px; }")
         kernel_layout = QVBoxLayout()
+        kernel_row = QHBoxLayout()
+        kernel_row.addWidget(QLabel("Crystal (Kernel):"))
+        self.combo_kernel = QComboBox()
+        self.combo_kernel.addItems(["linux", "linux-zen", "linux-lts"])
+        self.combo_kernel.setStyleSheet("background-color: #f3dfb4; color: #1A1B26;")
+        kernel_row.addWidget(self.combo_kernel)
         self.check_bleed = QCheckBox("Bleed the Crystal (Custom Kernel Source Compilation)")
-        self.check_mirrors = QCheckBox("Synchronize Mirrors (Optimize Network Uplinks)")
+        self.check_mirrors = QCheckBox("Optimize Mirrors (Reflector)")
+        self.check_multilib = QCheckBox("Enable [multilib] repository")
         self.check_mirrors.setChecked(True)
+        helper_row = QHBoxLayout()
+        helper_row.addWidget(QLabel("Black Market Helper:"))
+        self.combo_aur = QComboBox()
+        self.combo_aur.addItems(["paru", "yay"])
+        self.combo_aur.setStyleSheet("background-color: #f3dfb4; color: #1A1B26;")
+        helper_row.addWidget(self.combo_aur)
+        kernel_layout.addLayout(kernel_row)
         kernel_layout.addWidget(self.check_bleed)
         kernel_layout.addWidget(self.check_mirrors)
+        kernel_layout.addWidget(self.check_multilib)
+        kernel_layout.addLayout(helper_row)
         kernel_group.setLayout(kernel_layout)
         layout.addWidget(kernel_group)
 
@@ -121,11 +164,29 @@ class KyberLauncher(QWidget):
 
     def save_settings(self):
         self.settings["force_path"] = "jedi" if self.radio_jedi.isChecked() else "sith"
+        self.settings["kernel"] = self.combo_kernel.currentText()
+        self.settings["desktops"] = [
+            desktop for desktop, selected in (
+                ("plasma-desktop", self.check_plasma.isChecked()),
+                ("gnome", self.check_gnome.isChecked()),
+                ("mate", self.check_mate.isChecked()),
+            ) if selected
+        ]
+        self.settings["window_managers"] = [
+            wm for wm, selected in (
+                ("hyprland", self.check_hyprland.isChecked()),
+                ("i3-wm", self.check_i3.isChecked()),
+                ("dwm", self.check_dwm.isChecked()),
+                ("openbox", self.check_openbox.isChecked()),
+            ) if selected
+        ]
         self.settings["bundle_coding"] = self.check_coding.isChecked()
         self.settings["bundle_gaming"] = self.check_gaming.isChecked()
         self.settings["bundle_media"] = self.check_media.isChecked()
         self.settings["bleed_crystal"] = self.check_bleed.isChecked()
         self.settings["optimize_mirrors"] = self.check_mirrors.isChecked()
+        self.settings["enable_multilib"] = self.check_multilib.isChecked()
+        self.settings["aur_helper"] = self.combo_aur.currentText()
 
         with open("/tmp/kyber_settings.json", "w") as f:
             json.dump(self.settings, f)
