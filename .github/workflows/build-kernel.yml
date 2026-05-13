@@ -10,6 +10,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
     permissions:
       contents: write
 
@@ -19,8 +21,11 @@ jobs:
 
       - name: Setup Build Environment
         run: |
-          sudo apt-get update
-          sudo apt-get install -y curl jq
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm base-devel curl jq git sudo
+          useradd -m builduser
+          echo "builduser ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          chown -R builduser:builduser .
 
       - name: Fetch Latest Kernel Version
         id: kernel_version
@@ -32,14 +37,13 @@ jobs:
       - name: Generate PKGBUILD
         run: |
           cd linux-kyberos
-          ./generate-pkgbuild.sh
+          sudo -u builduser ./generate-pkgbuild.sh
           cat PKGBUILD
 
       - name: Build Arch Package (linux-kyberos)
-        uses: 2m/arch-pkgbuild-builder@v1.16
-        with:
-          target: "linux-kyberos"
-          pkgname: "linux-kyberos"
+        run: |
+          cd linux-kyberos
+          sudo -u builduser MAKEFLAGS="-j$(nproc)" makepkg -s --noconfirm
         env:
           PKGEXT: '.pkg.tar.zst'
 
