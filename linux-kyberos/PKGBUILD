@@ -1,6 +1,6 @@
 # Maintainer: Kyber OS
 pkgbase=linux-kyberos
-pkgver=7.1
+pkgver=7.0.6
 pkgrel=1
 pkgdesc='Linux'
 url='https://github.com/torvalds/linux'
