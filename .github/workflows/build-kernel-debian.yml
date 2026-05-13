@@ -30,17 +30,15 @@ jobs:
 
       - name: Generate Ephemeral GPG Key
         run: |
-          cat << 'EOF' > gpg-gen-key.conf
-          %no-protection
-          Key-Type: RSA
-          Key-Length: 4096
-          Subkey-Type: RSA
-          Subkey-Length: 4096
-          Name-Real: Kyber OS Ephemeral APT Key
-          Name-Email: repo@kyberos.local
-          Expire-Date: 0
-          %commit
-          EOF
+          echo "%no-protection" > gpg-gen-key.conf
+          echo "Key-Type: RSA" >> gpg-gen-key.conf
+          echo "Key-Length: 4096" >> gpg-gen-key.conf
+          echo "Subkey-Type: RSA" >> gpg-gen-key.conf
+          echo "Subkey-Length: 4096" >> gpg-gen-key.conf
+          echo "Name-Real: Kyber OS Ephemeral APT Key" >> gpg-gen-key.conf
+          echo "Name-Email: repo@kyberos.local" >> gpg-gen-key.conf
+          echo "Expire-Date: 0" >> gpg-gen-key.conf
+          echo "%commit" >> gpg-gen-key.conf
           gpg --batch --generate-key gpg-gen-key.conf
           rm gpg-gen-key.conf
 
@@ -71,15 +69,13 @@ jobs:
           gzip -k -f Packages
 
           # Generate Release info
-          cat <<EOF > Release
-Architectures: amd64
-Components: main
-Suite: stable
-Origin: Kyber OS
-Label: Kyber OS Debian Kernel Repository
-Description: Custom optimized Linux kernel for Kyber OS on Debian/Ubuntu
-Date: $(date -Ru)
-EOF
+          echo "Architectures: amd64" > Release
+          echo "Components: main" >> Release
+          echo "Suite: stable" >> Release
+          echo "Origin: Kyber OS" >> Release
+          echo "Label: Kyber OS Debian Kernel Repository" >> Release
+          echo "Description: Custom optimized Linux kernel for Kyber OS on Debian/Ubuntu" >> Release
+          echo "Date: $(date -Ru)" >> Release
 
           # Append MD5/SHA to Release
           echo "MD5Sum:" >> Release
