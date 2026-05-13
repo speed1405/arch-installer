@@ -38,9 +38,7 @@ jobs:
       - name: Build Arch Package (linux-kyberos)
         uses: 2m/arch-pkgbuild-builder@v1.16
         with:
-          target: 'pkgbuild'
-          pkgname: 'linux-kyberos'
-          source_dir: 'linux-kyberos'
+          target: linux-kyberos
         env:
           PKGEXT: '.pkg.tar.zst'
 
