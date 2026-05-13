@@ -353,12 +353,22 @@ install_base() {
     pacstrap /mnt base $KERNEL linux-firmware base-devel networkmanager sudo nano git $UCODE --noconfirm
     genfstab -U /mnt >> /mnt/etc/fstab
 
+    # Inject Kyber OS Kernel Repository
+    log "Injecting Kyber OS custom repository..."
+    cat <<EOF >> /mnt/etc/pacman.conf
+
+[kyberos]
+SigLevel = Optional TrustAll
+Server = https://github.com/speed1405/arch-installer/releases/download/kyberos-repo/
+EOF
+
     # Enable Multilib
     if [[ "$ENABLE_MULTILIB" == "YES" ]]; then
         log "Unlocking [multilib] archives..."
         sed -i "/\[multilib\]/,/Include/s/^#//" /mnt/etc/pacman.conf
-        arch-chroot /mnt pacman -Sy
     fi
+
+    arch-chroot /mnt pacman -Sy
 }
 
 install_selected_software() {

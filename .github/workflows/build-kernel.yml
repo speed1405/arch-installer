@@ -47,6 +47,18 @@ jobs:
         env:
           PKGEXT: '.pkg.tar.zst'
 
+      - name: Generate Pacman Repository DB
+        run: |
+          cd linux-kyberos
+          # Download existing DB if it exists so we can append to it
+          mkdir -p repo
+          cd repo
+          curl -L -O -f https://github.com/${{ github.repository }}/releases/download/kyberos-repo/kyberos.db.tar.zst || echo "No existing DB found"
+          curl -L -O -f https://github.com/${{ github.repository }}/releases/download/kyberos-repo/kyberos.files.tar.zst || echo "No existing files DB found"
+          cp ../*.pkg.tar.zst .
+          repo-add -n -R kyberos.db.tar.zst *.pkg.tar.zst
+          cd ..
+
       - name: List Output Files
         run: ls -la linux-kyberos/*.pkg.tar.zst
 
@@ -71,9 +83,12 @@ jobs:
       - name: Create Release and Upload Packages
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.create_tag.outputs.tag_name }}
-          name: "Kyber OS Kernel ${{ env.KERNEL_VERSION }}"
-          body: "Automated build of the `linux-kyberos` custom kernel optimized for Gaming, Virtualization, and Graphics."
-          files: linux-kyberos/*.pkg.tar.zst
+          tag_name: "kyberos-repo"
+          name: "Kyber OS Kernel Repository"
+          body: "Automated persistent repository for the `linux-kyberos` custom kernel.\n\nTo use, add the following to `/etc/pacman.conf`:\n\n```ini\n[kyberos]\nServer = https://github.com/${{ github.repository }}/releases/download/kyberos-repo/\n```"
+          files: |
+            linux-kyberos/repo/*.pkg.tar.zst
+            linux-kyberos/repo/kyberos.db*
+            linux-kyberos/repo/kyberos.files*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
