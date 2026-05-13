@@ -1,0 +1,148 @@
+name: Build Kyber OS Kernel (Debian)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'linux-kyberos-debian/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Build Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libncurses-dev bison flex libssl-dev libelf-dev bc dpkg-dev wget curl jq rsync gnupg2
+
+      - name: Build Debian Packages
+        run: |
+          cd linux-kyberos-debian
+          ./build-debian.sh
+          ls -la ..
+
+      - name: Generate Ephemeral GPG Key
+        run: |
+          cat << 'EOF' > gpg-gen-key.conf
+          %no-protection
+          Key-Type: RSA
+          Key-Length: 4096
+          Subkey-Type: RSA
+          Subkey-Length: 4096
+          Name-Real: Kyber OS Ephemeral APT Key
+          Name-Email: repo@kyberos.local
+          Expire-Date: 0
+          %commit
+          EOF
+          gpg --batch --generate-key gpg-gen-key.conf
+          rm gpg-gen-key.conf
+
+      - name: Generate APT Repository
+        run: |
+          cd linux-kyberos-debian
+          mkdir -p repo/conf
+
+          # Fetch any existing packages from the GitHub release to append to the repo
+          cd repo
+          curl -L -O -f https://github.com/${{ github.repository }}/releases/download/kyberos-debian-repo/Packages.gz || echo "No existing Packages.gz found"
+          curl -L -O -f https://github.com/${{ github.repository }}/releases/download/kyberos-debian-repo/Release || echo "No existing Release found"
+          curl -L -O -f https://github.com/${{ github.repository }}/releases/download/kyberos-debian-repo/InRelease || echo "No existing InRelease found"
+          # Download all .deb files from the release (requires gh cli or curl api, simplifying by scanning local only for now and appending to existing index)
+          # Actually, standard dpkg-scanpackages requires all .debs to be present.
+          # We'll just host the latest build in the repo to save space, but users can keep the repo URL.
+          cd ..
+
+          # Move newly built .deb files into repo directory
+          # The script was run from linux-kyberos-debian/ and `cd`d into linux-$VERSION.
+          # `make bindeb-pkg` places the .deb files in the directory ABOVE the kernel tree, which is linux-kyberos-debian/
+          # Right now we are in linux-kyberos-debian/
+          mv *.deb repo/ 2>/dev/null || true
+
+          # Generate Packages
+          cd repo
+          dpkg-scanpackages . /dev/null > Packages
+          gzip -k -f Packages
+
+          # Generate Release info
+          cat <<EOF > Release
+Architectures: amd64
+Components: main
+Suite: stable
+Origin: Kyber OS
+Label: Kyber OS Debian Kernel Repository
+Description: Custom optimized Linux kernel for Kyber OS on Debian/Ubuntu
+Date: $(date -Ru)
+EOF
+
+          # Append MD5/SHA to Release
+          echo "MD5Sum:" >> Release
+          for file in Packages Packages.gz; do
+            echo " $(md5sum $file | cut -d' ' -f1) $(stat -c %s $file) $file" >> Release
+          done
+          echo "SHA256:" >> Release
+          for file in Packages Packages.gz; do
+            echo " $(sha256sum $file | cut -d' ' -f1) $(stat -c %s $file) $file" >> Release
+          done
+
+          # Sign Release
+          # repo@kyberos.local is the identity from our generated key
+          gpg --default-key repo@kyberos.local -abs -o Release.gpg Release
+          gpg --default-key repo@kyberos.local --clearsign -o InRelease Release
+
+          # Export public key for users to download
+          gpg --armor --export repo@kyberos.local > kyberos-apt-key.public
+
+      - name: Create Git Tag (Version History)
+        uses: actions/github-script@v6
+        id: create_tag
+        with:
+          script: |
+            const tag = `v${process.env.KERNEL_VERSION}-debian-kyberos`;
+            try {
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/tags/${tag}`,
+                sha: context.sha
+              });
+            } catch (err) {
+              console.log(`Tag ${tag} might already exist: ${err}`);
+            }
+            core.setOutput('tag_name', tag);
+
+      - name: Create Persistent APT Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "kyberos-debian-repo"
+          name: "Kyber OS Debian APT Repository"
+          body: |
+            Automated persistent APT repository for the `linux-kyberos` custom kernel on Ubuntu/Debian.
+
+            ### Usage Instructions
+
+            ```bash
+            # Download the latest GPG Key for this release
+            curl -fsSL https://github.com/${{ github.repository }}/releases/download/kyberos-debian-repo/kyberos-apt-key.public | sudo gpg --dearmor -o /usr/share/keyrings/kyberos-archive-keyring.gpg
+
+            # Add the Repository
+            echo "deb [signed-by=/usr/share/keyrings/kyberos-archive-keyring.gpg] https://github.com/${{ github.repository }}/releases/download/kyberos-debian-repo/ ./" | sudo tee /etc/apt/sources.list.d/kyberos.list
+
+            # Update and Install
+            sudo apt update
+            sudo apt install linux-image-${{ env.KERNEL_VERSION }}-kyberos linux-headers-${{ env.KERNEL_VERSION }}-kyberos
+            ```
+          files: |
+            linux-kyberos-debian/repo/*.deb
+            linux-kyberos-debian/repo/Packages*
+            linux-kyberos-debian/repo/Release*
+            linux-kyberos-debian/repo/InRelease
+            linux-kyberos-debian/repo/kyberos-apt-key.public
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
