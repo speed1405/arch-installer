@@ -67,10 +67,17 @@ prepare() {
   ./scripts/config --disable CONFIG_PREEMPT_VOLUNTARY
   ./scripts/config --enable CONFIG_HZ_1000
   ./scripts/config --disable CONFIG_HZ_300
-  ./scripts/config --enable CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE
-  ./scripts/config --disable CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
+  ./scripts/config --disable CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE
+  ./scripts/config --enable CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
   ./scripts/config --enable CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE
   ./scripts/config --set-str LOCALVERSION "-kyberos"
+
+  # Footprint & Modularity optimizations
+  ./scripts/config --disable CONFIG_DEBUG_INFO
+  ./scripts/config --enable CONFIG_DEBUG_INFO_NONE
+  ./scripts/config --disable CONFIG_DEBUG_KERNEL
+  ./scripts/config --enable CONFIG_MODULE_COMPRESS_ZSTD
+  ./scripts/config --disable CONFIG_SUNGEM
 
   # Virtualization/Gaming specific
   ./scripts/config --enable CONFIG_KVM
@@ -89,7 +96,7 @@ prepare() {
 
 build() {
   cd linux-${pkgver}
-  make all
+  make all -j$(nproc)
 }
 
 _package() {
