@@ -72,14 +72,14 @@ jobs:
 
           # Generate Release info
           cat <<EOF > Release
-Architectures: amd64
-Components: main
-Suite: stable
-Origin: Kyber OS
-Label: Kyber OS Debian Kernel Repository
-Description: Custom optimized Linux kernel for Kyber OS on Debian/Ubuntu
-Date: $(date -Ru)
-EOF
+          Architectures: amd64
+          Components: main
+          Suite: stable
+          Origin: Kyber OS
+          Label: Kyber OS Debian Kernel Repository
+          Description: Custom optimized Linux kernel for Kyber OS on Debian/Ubuntu
+          Date: $(date -Ru)
+          EOF
 
           # Append MD5/SHA to Release
           echo "MD5Sum:" >> Release
