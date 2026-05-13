@@ -1,28 +1,6 @@
-#!/usr/bin/env bash
-
-# Fetch latest stable version if not provided by env
-if [ -z "$KERNEL_VERSION" ]; then
-    KERNEL_VERSION=$(curl -s https://www.kernel.org/releases.json | grep -oP '(?<="version": ")[0-9]+(\.[0-9]+)+' | head -n 1)
-fi
-
-if [ -z "$KERNEL_VERSION" ]; then
-    echo "Failed to get latest stable kernel version."
-    exit 1
-fi
-
-MAJOR_VERSION=$(echo "$KERNEL_VERSION" | cut -d. -f1)
-
-echo "Building Linux Kernel version: $KERNEL_VERSION"
-
-# Expose version to GitHub Actions
-if [ -n "$GITHUB_ENV" ]; then
-    echo "KERNEL_VERSION=$KERNEL_VERSION" >> "$GITHUB_ENV"
-fi
-
-cat << 'PKGBUILD_EOF' > PKGBUILD
 # Maintainer: Kyber OS
 pkgbase=linux-kyberos
-pkgver=__VERSION__
+pkgver=7.1
 pkgrel=1
 pkgdesc='Linux'
 url='https://github.com/torvalds/linux'
@@ -47,7 +25,7 @@ options=(
   !strip
 )
 source=(
-  "https://cdn.kernel.org/pub/linux/kernel/v__MAJOR__.x/linux-${pkgver}.tar.xz"
+  "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-${pkgver}.tar.xz"
   "config"
 )
 sha256sums=('SKIP' 'SKIP')
@@ -171,7 +149,3 @@ package_linux-kyberos() {
 package_linux-kyberos-headers() {
   _package_headers
 }
-PKGBUILD_EOF
-
-sed -i "s/__VERSION__/$KERNEL_VERSION/g" PKGBUILD
-sed -i "s/__MAJOR__/$MAJOR_VERSION/g" PKGBUILD
