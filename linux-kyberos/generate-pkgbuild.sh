@@ -2,7 +2,7 @@
 
 # Fetch latest stable version if not provided by env
 if [ -z "$KERNEL_VERSION" ]; then
-    KERNEL_VERSION=$(curl -s https://www.kernel.org/releases.json | grep -oP '(?<="version": ")[0-9]+(\.[0-9]+)+' | head -n 1)
+    KERNEL_VERSION=$(curl -s https://www.kernel.org/releases.json | grep -A 2 '"latest_stable":' | grep '"version":' | cut -d '"' -f 4)
 fi
 
 if [ -z "$KERNEL_VERSION" ]; then
