@@ -3,7 +3,7 @@
 This directory contains the build system for `linux-kyberos`, a custom kernel optimized for Kyber OS.
 
 ## Optimizations
-- **Gaming:** 1000Hz tick rate (`CONFIG_HZ_1000`), Full Preemption (`CONFIG_PREEMPT`), Performance CPU governor by default.
+- **Gaming:** 1000Hz tick rate (`CONFIG_HZ_1000`), Full Preemption (`CONFIG_PREEMPT`), Schedutil CPU governor by default.
 - **Virtualization:** Full KVM, VIRTIO, and VFIO (PCI Passthrough) support enabled.
 - **Graphics:** Arch default base config including full support for AMD, NVIDIA (via DKMS), and Intel graphics.
 

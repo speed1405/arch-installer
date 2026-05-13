@@ -7,7 +7,7 @@ fi
 
 if [ -z "$KERNEL_VERSION" ]; then
     echo "Failed to get latest stable kernel version."
-    return 1 2>/dev/null
+    exit 1
 fi
 
 MAJOR_VERSION=$(echo "$KERNEL_VERSION" | cut -d. -f1)
@@ -143,7 +143,7 @@ _package() {
   rm -f "$modulesdir"/{source,build}
 }
 
-_package-headers() {
+_package_headers() {
   pkgdesc="Headers and scripts for building modules for the ${pkgdesc} kernel"
   depends=(pahole)
 
@@ -164,12 +164,12 @@ _package-headers() {
 
 pkgname=("$pkgbase" "$pkgbase-headers")
 
-package_linux-kyberos() {
+package_linux_kyberos() {
   _package
 }
 
-package_linux-kyberos-headers() {
-  _package-headers
+package_linux_kyberos_headers() {
+  _package_headers
 }
 PKGBUILD_EOF
 
