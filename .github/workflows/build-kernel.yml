@@ -1,0 +1,76 @@
+name: Build Kyber OS Kernel
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'linux-kyberos/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Build Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl jq
+
+      - name: Fetch Latest Kernel Version
+        id: kernel_version
+        run: |
+          KERNEL_VERSION=$(curl -s https://www.kernel.org/releases.json | jq -r '.latest_stable.version')
+          echo "version=$KERNEL_VERSION" >> $GITHUB_OUTPUT
+          echo "kernel_version=$KERNEL_VERSION" >> $GITHUB_ENV
+
+      - name: Generate PKGBUILD
+        run: |
+          cd linux-kyberos
+          ./generate-pkgbuild.sh
+          cat PKGBUILD
+
+      - name: Build Arch Package (linux-kyberos)
+        uses: 2m/arch-pkgbuild-builder@v1.16
+        with:
+          target: 'pkgbuild'
+          pkgname: 'linux-kyberos'
+          source_dir: 'linux-kyberos'
+        env:
+          PKGEXT: '.pkg.tar.zst'
+
+      - name: List Output Files
+        run: ls -la linux-kyberos/*.pkg.tar.zst
+
+      - name: Create Git Tag
+        uses: actions/github-script@v6
+        id: create_tag
+        with:
+          script: |
+            const tag = `v${process.env.kernel_version}-kyberos`;
+            try {
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/tags/${tag}`,
+                sha: context.sha
+              });
+            } catch (err) {
+              console.log(`Tag ${tag} might already exist: ${err}`);
+            }
+            core.setOutput('tag_name', tag);
+
+      - name: Create Release and Upload Packages
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.create_tag.outputs.tag_name }}
+          name: "Kyber OS Kernel ${{ env.kernel_version }}"
+          body: "Automated build of the `linux-kyberos` custom kernel optimized for Gaming, Virtualization, and Graphics."
+          files: linux-kyberos/*.pkg.tar.zst
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
