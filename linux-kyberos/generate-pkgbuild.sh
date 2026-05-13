@@ -72,6 +72,18 @@ prepare() {
   ./scripts/config --enable CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE
   ./scripts/config --set-str LOCALVERSION "-kyberos"
 
+  # Laptop Trackpad & Multitouch
+  ./scripts/config --enable CONFIG_I2C_HID_ACPI
+  ./scripts/config --enable CONFIG_MOUSE_PS2_ELANTECH
+  ./scripts/config --enable CONFIG_MOUSE_PS2_SYNAPTICS
+  ./scripts/config --enable CONFIG_INPUT_MULTITOUCH
+
+  # UEFI & BIOS Compatibility
+  ./scripts/config --enable CONFIG_EFI
+  ./scripts/config --enable CONFIG_EFI_STUB
+  ./scripts/config --enable CONFIG_EFI_MIXED
+  ./scripts/config --enable CONFIG_RELOCATABLE
+
   # Footprint & Modularity optimizations
   ./scripts/config --disable CONFIG_DEBUG_INFO
   ./scripts/config --enable CONFIG_DEBUG_INFO_NONE
