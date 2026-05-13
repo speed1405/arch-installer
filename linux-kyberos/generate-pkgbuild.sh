@@ -76,7 +76,7 @@ prepare() {
   ./scripts/config --enable CONFIG_I2C_HID_ACPI
   ./scripts/config --enable CONFIG_MOUSE_PS2_ELANTECH
   ./scripts/config --enable CONFIG_MOUSE_PS2_SYNAPTICS
-  ./scripts/config --enable CONFIG_INPUT_MULTITOUCH
+  ./scripts/config --enable CONFIG_HID_MULTITOUCH
 
   # UEFI & BIOS Compatibility
   ./scripts/config --enable CONFIG_EFI
@@ -152,7 +152,7 @@ _package-headers() {
 
   echo "Installing build files..."
   install -Dt "$builddir" -m644 .config Makefile Module.symvers System.map \
-    localversion.* version vmlinux
+     version vmlinux
   install -Dt "$builddir/kernel" -m644 kernel/Makefile
   install -Dt "$builddir/arch/x86" -m644 arch/x86/Makefile
   cp -t "$builddir" -a scripts include arch/x86/include
