@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -e
+umask 022
 
 # Fetch latest stable version
 KERNEL_VERSION=$(curl -s https://www.kernel.org/releases.json | jq -r '.latest_stable.version')
@@ -69,7 +70,12 @@ make defconfig
 
 make olddefconfig
 
+# Ensure fixdep exists with executable bits before bindeb-pkg packaging stages run.
+# We keep this explicit in CI as a guard even with umask normalization above.
+make -j"$(nproc)" scripts/basic/fixdep
+chmod 755 scripts/basic/fixdep
+
 # Build Debian Packages
-make -j$(nproc) bindeb-pkg
+make -j"$(nproc)" bindeb-pkg
 
 echo "Debian packages generated in $(dirname $(pwd))"
