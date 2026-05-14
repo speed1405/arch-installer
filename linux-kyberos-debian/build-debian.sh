@@ -5,6 +5,11 @@ umask 022
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 CONFIG_FILE="$SCRIPT_DIR/../linux-kyberos/config"
 
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo "Error: Shared Kyberos config not found at $CONFIG_FILE"
+    exit 1
+fi
+
 # Fetch latest stable version
 KERNEL_VERSION=$(curl -s https://www.kernel.org/releases.json | jq -r '.latest_stable.version')
 
