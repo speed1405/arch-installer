@@ -35,7 +35,7 @@ make defconfig
 ./scripts/config --disable CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE
 ./scripts/config --enable CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
 ./scripts/config --enable CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE
-./scripts/config --set-str LOCALVERSION "-kyberos"
+./scripts/config --set-str CONFIG_LOCALVERSION "-kyberos"
 ./scripts/config --disable CONFIG_SYSTEM_TRUSTED_KEYS
 ./scripts/config --disable CONFIG_SYSTEM_REVOCATION_KEYS
 
