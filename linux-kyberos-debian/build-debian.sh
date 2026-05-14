@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -e
+umask 022
 
 # Fetch latest stable version
 KERNEL_VERSION=$(curl -s https://www.kernel.org/releases.json | jq -r '.latest_stable.version')
@@ -68,6 +69,10 @@ make defconfig
 ./scripts/config --enable CONFIG_VFIO_VIRQFD
 
 make olddefconfig
+
+# Ensure host helper tools keep executable permissions for bindeb-pkg.
+make -j"$(nproc)" scripts/basic/fixdep
+chmod 755 scripts/basic/fixdep
 
 # Build Debian Packages
 make -j$(nproc) bindeb-pkg
