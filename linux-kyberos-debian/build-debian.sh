@@ -75,6 +75,6 @@ make -j"$(nproc)" scripts/basic/fixdep
 chmod 755 scripts/basic/fixdep
 
 # Build Debian Packages
-make -j$(nproc) bindeb-pkg
+make -j"$(nproc)" bindeb-pkg
 
 echo "Debian packages generated in $(dirname $(pwd))"
