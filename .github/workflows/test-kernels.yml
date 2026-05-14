@@ -1,0 +1,147 @@
+name: Test Kyber OS Kernels
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'linux-kyberos/**'
+      - 'linux-kyberos-debian/**'
+
+jobs:
+  test-arch:
+    name: Test Arch Kernel (linux-kyberos)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    container:
+      image: archlinux:latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Build Environment
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm base-devel curl jq git sudo bc
+
+      - name: Validate Script Syntax
+        run: |
+          bash -n linux-kyberos/generate-pkgbuild.sh
+          echo "generate-pkgbuild.sh syntax OK"
+
+      - name: Fetch Latest Kernel Version
+        run: |
+          KERNEL_VERSION=$(curl -s https://www.kernel.org/releases.json | jq -r '.latest_stable.version')
+          echo "KERNEL_VERSION=$KERNEL_VERSION" >> "$GITHUB_ENV"
+          echo "Detected kernel version: $KERNEL_VERSION"
+
+      - name: Generate PKGBUILD
+        run: |
+          cd linux-kyberos
+          useradd -m builduser
+          chown -R builduser:builduser .
+          sudo -u builduser ./generate-pkgbuild.sh
+          echo "--- Generated PKGBUILD ---"
+          cat PKGBUILD
+
+      - name: Validate PKGBUILD Syntax
+        run: |
+          bash -n linux-kyberos/PKGBUILD
+          echo "PKGBUILD syntax OK"
+
+      - name: Validate Required PKGBUILD Fields
+        run: |
+          cd linux-kyberos
+          source PKGBUILD
+          echo "pkgbase=$pkgbase"
+          echo "pkgver=$pkgver"
+          echo "arch=${arch[*]}"
+          [ -n "$pkgbase" ] || { echo "ERROR: pkgbase is empty"; exit 1; }
+          [ -n "$pkgver" ]  || { echo "ERROR: pkgver is empty"; exit 1; }
+          echo "PKGBUILD field validation OK"
+
+      - name: Download Kernel Source
+        run: |
+          MAJOR=$(echo "$KERNEL_VERSION" | cut -d. -f1)
+          curl -L -O "https://cdn.kernel.org/pub/linux/kernel/v${MAJOR}.x/linux-${KERNEL_VERSION}.tar.xz"
+          tar -xf "linux-${KERNEL_VERSION}.tar.xz"
+          echo "Kernel source extracted"
+
+      - name: Apply Config and Validate
+        run: |
+          cd "linux-${KERNEL_VERSION}"
+          cp ../linux-kyberos/config .config
+
+          ./scripts/config --enable CONFIG_PREEMPT
+          ./scripts/config --disable CONFIG_PREEMPT_VOLUNTARY
+          ./scripts/config --enable CONFIG_HZ_1000
+          ./scripts/config --disable CONFIG_HZ_300
+          ./scripts/config --disable CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE
+          ./scripts/config --enable CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
+          ./scripts/config --enable CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE
+          ./scripts/config --set-str LOCALVERSION "-kyberos"
+          ./scripts/config --disable CONFIG_SYSTEM_TRUSTED_KEYS
+          ./scripts/config --disable CONFIG_SYSTEM_REVOCATION_KEYS
+
+          make olddefconfig
+          make -s kernelrelease > version
+          echo "Kernel release string: $(cat version)"
+          grep -q "\-kyberos" version || { echo "ERROR: LOCALVERSION -kyberos not found in release string"; exit 1; }
+          echo "Arch kernel config validation OK"
+
+  test-debian:
+    name: Test Debian Kernel (linux-kyberos-debian)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Build Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libncurses-dev bison flex libssl-dev libelf-dev bc curl jq
+
+      - name: Validate Script Syntax
+        run: |
+          bash -n linux-kyberos-debian/build-debian.sh
+          echo "build-debian.sh syntax OK"
+
+      - name: Fetch Latest Kernel Version
+        run: |
+          KERNEL_VERSION=$(curl -s https://www.kernel.org/releases.json | jq -r '.latest_stable.version')
+          echo "KERNEL_VERSION=$KERNEL_VERSION" >> "$GITHUB_ENV"
+          echo "Detected kernel version: $KERNEL_VERSION"
+
+      - name: Download Kernel Source
+        run: |
+          MAJOR=$(echo "$KERNEL_VERSION" | cut -d. -f1)
+          curl -L -O "https://cdn.kernel.org/pub/linux/kernel/v${MAJOR}.x/linux-${KERNEL_VERSION}.tar.xz"
+          tar -xf "linux-${KERNEL_VERSION}.tar.xz"
+          echo "Kernel source extracted"
+
+      - name: Apply Config and Validate
+        run: |
+          cd "linux-${KERNEL_VERSION}"
+          make defconfig
+
+          ./scripts/config --enable CONFIG_PREEMPT
+          ./scripts/config --disable CONFIG_PREEMPT_VOLUNTARY
+          ./scripts/config --enable CONFIG_HZ_1000
+          ./scripts/config --disable CONFIG_HZ_300
+          ./scripts/config --disable CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE
+          ./scripts/config --enable CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
+          ./scripts/config --enable CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE
+          ./scripts/config --set-str LOCALVERSION "-kyberos"
+          ./scripts/config --disable CONFIG_SYSTEM_TRUSTED_KEYS
+          ./scripts/config --disable CONFIG_SYSTEM_REVOCATION_KEYS
+
+          make olddefconfig
+          make -s kernelrelease > version
+          echo "Kernel release string: $(cat version)"
+          grep -q "\-kyberos" version || { echo "ERROR: LOCALVERSION -kyberos not found in release string"; exit 1; }
+          echo "Debian kernel config validation OK"
