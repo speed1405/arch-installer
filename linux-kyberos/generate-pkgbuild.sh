@@ -70,7 +70,7 @@ prepare() {
   ./scripts/config --disable CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE
   ./scripts/config --enable CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
   ./scripts/config --enable CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE
-  ./scripts/config --set-str LOCALVERSION "-kyberos"
+  ./scripts/config --set-str CONFIG_LOCALVERSION "-kyberos"
 
   # Laptop Trackpad & Multitouch
   ./scripts/config --enable CONFIG_I2C_HID_ACPI
