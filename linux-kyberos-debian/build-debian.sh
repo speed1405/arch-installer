@@ -2,6 +2,9 @@
 set -e
 umask 022
 
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+CONFIG_FILE="$SCRIPT_DIR/../linux-kyberos/config"
+
 # Fetch latest stable version
 KERNEL_VERSION=$(curl -s https://www.kernel.org/releases.json | jq -r '.latest_stable.version')
 
@@ -24,8 +27,8 @@ curl -O -L "https://cdn.kernel.org/pub/linux/kernel/v${MAJOR_VERSION}.x/linux-${
 tar -xf "linux-${KERNEL_VERSION}.tar.xz"
 cd "linux-${KERNEL_VERSION}"
 
-# Make default config
-make defconfig
+# Reuse the shared Kyber kernel config so Debian and Arch builds stay aligned.
+cp "$CONFIG_FILE" .config
 
 # Apply Kyber OS optimisations via scripts/config
 ./scripts/config --enable CONFIG_PREEMPT

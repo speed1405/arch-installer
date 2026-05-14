@@ -128,7 +128,7 @@ jobs:
       - name: Apply Config and Validate
         run: |
           cd "linux-${KERNEL_VERSION}"
-          make defconfig
+          cp ../linux-kyberos/config .config
 
           ./scripts/config --enable CONFIG_PREEMPT
           ./scripts/config --disable CONFIG_PREEMPT_VOLUNTARY
