@@ -70,7 +70,8 @@ make defconfig
 
 make olddefconfig
 
-# Ensure host helper tools keep executable permissions for bindeb-pkg.
+# Ensure fixdep exists with executable bits before bindeb-pkg packaging stages run.
+# We keep this explicit in CI as a guard even with umask normalization above.
 make -j"$(nproc)" scripts/basic/fixdep
 chmod 755 scripts/basic/fixdep
 
